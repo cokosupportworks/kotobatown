@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ことばタウン 効果音工房 · SFX Vibe Forge Studio</title>
+  <link rel="stylesheet" href="sfx-studio.css">
+  <link rel="stylesheet" href="studio-assets/fontawesome.css">
+
+  <style>
+    /* カスタムスクロールバーとスライダー */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #080c14; }
+    ::-webkit-scrollbar-thumb { background: #223250; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      background: #1a253c;
+      border-radius: 9999px;
+      height: 6px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+      transition: transform 0.1s ease, background 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      background: #06b6d4;
+    }
+    .custom-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: #223250 #080c14;
+    }
+    .town-transfer{position:sticky;top:0;z-index:60;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;background:#e9f1df;color:#344b3e;font:600 13px system-ui}
+    body>header{position:relative!important;top:auto!important}
+    .town-transfer button{border:1px solid #829b74;border-radius:7px;min-height:42px;padding:8px 14px;background:#fffdf5;font:inherit}.town-transfer #townAdd{background:#52745a;color:white}
+    @media(max-width:600px){.town-transfer span{flex-basis:100%;font-size:11px}.town-transfer button{flex:1;font-size:12px}}
+  </style>
+</head>
+<body class="bg-brand-dark text-slate-100 min-h-screen flex flex-col font-sans selection:bg-brand-cyan selection:text-brand-dark">
+
+  <div class="town-transfer"><span>作った音を、絵の効果音として使おう</span><button id="townAdd">ことばタウンに追加</button><button id="townBack">設定に戻る</button></div>
+  <!-- ヘッダー -->
+  <header class="border-b border-brand-border bg-brand-surface/90 backdrop-blur sticky top-0 z-40 px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-md">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-teal-400 to-sky-400 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-slate-950 font-black text-xl">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-lg md:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-teal-300 to-sky-400">
+            ことばタウン 効果音工房
+          </h1>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-gradient-to-r from-cyan-500/20 to-teal-500/20 border border-cyan-400/40 text-cyan-300 tracking-wide">KOTOBA TOWN</span>
+        </div>
+        <p class="text-[11px] text-slate-400 hidden sm:block">SFX Vibe Forge Studio / 音を作って、そのまま絵に追加できます</p>
+      </div>
+    </div>
+
+    <!-- ヘッダーアクション群: Undo / Redo / Mutate / Play / WAV -->
+    <div class="flex items-center flex-wrap gap-1.5 sm:gap-2">
+      <!-- Undo / Redo コントロール -->
+      <div class="flex items-center bg-brand-dark/80 p-0.5 rounded-xl border border-brand-border mr-1">
+        <button id="btnUndo" disabled title="元に戻す (Ctrl/Cmd+Z)" class="px-2.5 py-1.5 rounded-lg text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:text-cyan-300 hover:bg-brand-card transition flex items-center gap-1 text-xs font-semibold">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span class="hidden md:inline">Undo</span>
+        </button>
+        <span id="historyCounter" class="text-[10px] font-mono px-2 text-slate-400 border-x border-brand-border/60">0/0</span>
+        <button id="btnRedo" disabled title="やり直す (Ctrl/Cmd+Y, Shift+Cmd+Z)" class="px-2.5 py-1.5 rounded-lg text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed hover:text-cyan-300 hover:bg-brand-card transition flex items-center gap-1 text-xs font-semibold">
+          <span class="hidden md:inline">Redo</span>
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+
+      <!-- Mutate (ちょい変え) -->
+      <button id="btnMutate" title="現在の設定を±5〜10%揺らしてバリエーションを作成" class="px-3 py-1.5 rounded-xl bg-brand-card hover:bg-brand-border border border-brand-border text-amber-300 text-xs font-semibold active:scale-95 transition flex items-center gap-1.5 shadow-sm">
+        <i class="fa-solid fa-dna text-amber-400"></i>
+        <span>Mutate</span>
+      </button>
+
+      <!-- 試聴ボタン -->
+      <button id="btnPlayMain" class="px-4 sm:px-5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 text-xs sm:text-sm font-bold hover:brightness-110 active:scale-95 transition shadow-lg shadow-cyan-500/25 flex items-center gap-2">
+        <i class="fa-solid fa-play"></i>
+        <span>試聴 (Space)</span>
+      </button>
+
+      <!-- WAV保存 -->
+      <button id="btnExportWavTop" class="px-3 py-1.5 rounded-xl bg-brand-card hover:bg-brand-border border border-cyan-500/40 text-cyan-300 text-xs font-semibold active:scale-95 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-download"></i>
+        <span class="hidden sm:inline">WAV保存</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- サブバー: 音階テストパッド & ガチャ -->
+  <section class="bg-brand-surface border-b border-brand-border px-3 sm:px-6 py-2">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <!-- 現在のプリセット表示 & ガチャ -->
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-slate-400 font-medium">現在選択中:</span>
+        <span id="labelCurrentSound" class="text-xs font-bold px-2.5 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/40 text-cyan-300">
+          軽いタップ (Soft Tap)
+        </span>
+        <button id="btnGacha" class="ml-1 px-2.5 py-1 rounded-lg bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-[11px] font-bold text-purple-300 whitespace-nowrap transition flex items-center gap-1 active:scale-95">
+          <i class="fa-solid fa-dice"></i> 🎲 ガチャ
+        </button>
+      </div>
+
+      <!-- 音階テストパッド (Pitch Test Pad) -->
+      <div class="flex items-center gap-1 overflow-x-auto">
+        <span class="text-[11px] font-bold text-slate-400 whitespace-nowrap mr-1 hidden sm:inline">
+          <i class="fa-solid fa-music text-teal-400 mr-1"></i>音階テスト:
+        </span>
+        <button data-semi="-5" class="pitch-pad px-2 py-1 rounded bg-brand-card hover:bg-cyan-500/20 border border-brand-border text-[10px] font-mono text-slate-300 hover:text-cyan-300 transition">-5st</button>
+        <button data-semi="-2" class="pitch-pad px-2 py-1 rounded bg-brand-card hover:bg-cyan-500/20 border border-brand-border text-[10px] font-mono text-slate-300 hover:text-cyan-300 transition">-2st</button>
+        <button data-semi="0" class="pitch-pad px-2.5 py-1 rounded bg-cyan-500/20 border border-cyan-400/50 text-[10px] font-mono text-cyan-300 font-bold transition">基準</button>
+        <button data-semi="3" class="pitch-pad px-2 py-1 rounded bg-brand-card hover:bg-cyan-500/20 border border-brand-border text-[10px] font-mono text-slate-300 hover:text-cyan-300 transition">+3st</button>
+        <button data-semi="5" class="pitch-pad px-2 py-1 rounded bg-brand-card hover:bg-cyan-500/20 border border-brand-border text-[10px] font-mono text-slate-300 hover:text-cyan-300 transition">+5st</button>
+        <button data-semi="7" class="pitch-pad px-2 py-1 rounded bg-brand-card hover:bg-cyan-500/20 border border-brand-border text-[10px] font-mono text-slate-300 hover:text-cyan-300 transition">+7st</button>
+        <button data-semi="12" class="pitch-pad px-2 py-1 rounded bg-brand-card hover:bg-cyan-500/20 border border-brand-border text-[10px] font-mono text-slate-300 hover:text-cyan-300 transition">+12st</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 学習・ゲーム実戦シーン別プリセットドロワー (タブ切り替え) -->
+  <section class="bg-brand-surface/60 border-b border-brand-border px-3 sm:px-6 py-3">
+    <div class="max-w-7xl mx-auto space-y-2">
+      <!-- カテゴリタブヘッダー -->
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none" id="categoryTabContainer">
+          <button data-cat="all" class="scene-tab px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500 text-slate-950 shadow transition whitespace-nowrap">すべて (33)</button>
+          <button data-cat="town" class="scene-tab px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-card border border-brand-border text-slate-300">🏡 ことばタウン</button><button data-cat="ui" class="scene-tab px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-card border border-brand-border text-slate-300 hover:text-cyan-300 transition whitespace-nowrap">🔘 操作・UI</button>
+          <button data-cat="decision" class="scene-tab px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-card border border-brand-border text-slate-300 hover:text-cyan-300 transition whitespace-nowrap">✨ 決定・遷移</button>
+          <button data-cat="cancel" class="scene-tab px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-card border border-brand-border text-slate-300 hover:text-cyan-300 transition whitespace-nowrap">↩️ キャンセル・戻る</button>
+          <button data-cat="learning" class="scene-tab px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-card border border-brand-border text-slate-300 hover:text-cyan-300 transition whitespace-nowrap">🎓 正解・学習判定</button>
+          <button data-cat="game" class="scene-tab px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-card border border-brand-border text-slate-300 hover:text-cyan-300 transition whitespace-nowrap">🎮 ゲーム演出・報酬</button>
+        </div>
+        <!-- 検索バー -->
+        <div class="relative w-full sm:w-48">
+          <input type="text" id="templateSearch" placeholder="シーン検索..." class="w-full bg-brand-dark border border-brand-border rounded-lg pl-7 pr-2 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400">
+          <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-[10px] text-slate-500"></i>
+        </div>
+      </div>
+
+      <!-- プリセットバッジ一覧グリッド -->
+      <div id="templateCardGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-40 overflow-y-auto pr-1 custom-scroll">
+        <!-- JSで22種類を動的生成 -->
+      </div>
+    </div>
+  </section>
+
+  <!-- メインワークスペース -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+    <!-- 左カラム: オシロスコープ & 合成パラメーター (7 cols) -->
+    <section class="lg:col-span-7 flex flex-col gap-5">
+      
+      <!-- リアルタイム・オシロスコープ -->
+      <div class="bg-brand-card border border-brand-border rounded-2xl p-4 shadow-xl relative overflow-hidden">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2 text-xs font-semibold text-cyan-400 tracking-wider uppercase">
+            <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            Realtime Oscilloscope / Spectrum
+          </div>
+          <div class="text-[11px] text-slate-400 flex items-center gap-3">
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="radio" name="scopeMode" value="wave" checked class="text-cyan-500 focus:ring-0"> 波形
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="radio" name="scopeMode" value="freq" class="text-cyan-500 focus:ring-0"> スペクトラム
+            </label>
+          </div>
+        </div>
+        <div class="h-28 sm:h-32 w-full rounded-xl bg-brand-dark/95 border border-brand-border/60 relative overflow-hidden flex items-center justify-center">
+          <canvas id="scopeCanvas" class="w-full h-full block"></canvas>
+          <div id="scopePrompt" class="absolute pointer-events-none text-xs text-slate-500 tracking-wider">
+            試聴ボタン / テンプレート選択 / Spaceキー で発音
+          </div>
+        </div>
+      </div>
+
+      <!-- パラメーター操作パネル -->
+      <div class="bg-brand-card border border-brand-border rounded-2xl p-4 sm:p-5 shadow-xl space-y-5">
+        
+        <!-- セクション1: 主音源波形 (Osc 1) -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-wave-square"></i> 1. 主音源 (Oscillator 1 Waveform)
+            </h3>
+            <span class="text-xs font-medium text-slate-400" id="labelCurrentWave">Sine (サイン波)</span>
+          </div>
+          <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            <button data-wave="sine" class="wave-btn py-2 px-1 text-xs rounded-xl font-medium border border-cyan-500/50 bg-cyan-500/15 text-cyan-300 transition">サイン波</button>
+            <button data-wave="triangle" class="wave-btn py-2 px-1 text-xs rounded-xl font-medium border border-brand-border bg-brand-dark/60 text-slate-300 hover:border-cyan-500/40 transition">三角波</button>
+            <button data-wave="sawtooth" class="wave-btn py-2 px-1 text-xs rounded-xl font-medium border border-brand-border bg-brand-dark/60 text-slate-300 hover:border-cyan-500/40 transition">ノコギリ波</button>
+            <button data-wave="square" class="wave-btn py-2 px-1 text-xs rounded-xl font-medium border border-brand-border bg-brand-dark/60 text-slate-300 hover:border-cyan-500/40 transition">矩形波 (8-bit)</button>
+            <button data-wave="noise" class="wave-btn py-2 px-1 text-xs rounded-xl font-medium border border-brand-border bg-brand-dark/60 text-slate-300 hover:border-cyan-500/40 transition">ノイズ</button>
+          </div>
+        </div>
+
+        <!-- セクション2: 和音・2音レイヤー (Osc 2 Dual Tone) -->
+        <div class="border-t border-brand-border/60 pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-layer-group"></i> 2. 和音・2音アルペジオ (Oscillator 2)
+              </h3>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold border border-teal-500/30">ピロリン / 和音</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="dualToneToggle" class="sr-only peer">
+              <div class="w-9 h-5 bg-brand-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-500"></div>
+              <span class="ml-2 text-xs text-slate-300 font-medium" id="dualToneStatus">OFF</span>
+            </label>
+          </div>
+
+          <div id="dualToneSettings" class="opacity-50 pointer-events-none transition-all duration-200 bg-brand-dark/60 rounded-xl p-3 border border-brand-border grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">第2音の音程インターバル</span>
+              </div>
+              <select id="dualInterval" class="w-full bg-brand-surface border border-brand-border rounded-lg text-xs p-2 text-teal-300 focus:outline-none">
+                <option value="4">長3度 (+4st / 明るいチャイム「ピンポン」)</option>
+                <option value="7">完全5度 (+7st / 英雄的・ファンファーレ)</option>
+                <option value="12">1オクターブ上 (+12st / 輝き・キラリ)</option>
+                <option value="3">短3度 (+3st / 哀愁・ダーク)</option>
+                <option value="6">減5度・トライトーン (+6st / 不正解「ブブー」)</option>
+                <option value="-12">1オクターブ下 (-12st / 重厚低音)</option>
+                <option value="0">ユニゾン (0st / 厚み増し)</option>
+              </select>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">時間差ディレイ (Step Delay)</span>
+                <span class="text-teal-300 font-mono" id="valDualDelay">0.08 s</span>
+              </div>
+              <input type="range" id="dualDelay" min="0.0" max="0.3" step="0.01" value="0.08" class="w-full">
+              <div class="text-[10px] text-slate-500 mt-1">※ 0.0sで「同時和音」、0.05〜0.12sで「アルペジオ」</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- セクション3: ピッチ & 周波数スイープ -->
+        <div class="border-t border-brand-border/60 pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-arrows-up-down"></i> 3. ピッチ & 周波数スイープ
+            </h3>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-slate-400">カーブ:</span>
+              <select id="pitchCurve" class="bg-brand-dark border border-brand-border rounded-lg text-xs px-2 py-0.5 text-cyan-300 focus:outline-none">
+                <option value="exponential">指数関数 (自然)</option>
+                <option value="linear">リニア (直線)</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">開始周波数</span>
+                <span class="text-cyan-300 font-mono" id="valBasePitch">600 Hz</span>
+              </div>
+              <input type="range" id="basePitch" min="30" max="3200" step="5" value="600" class="w-full">
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">到達周波数</span>
+                <span class="text-cyan-300 font-mono" id="valTargetPitch">900 Hz</span>
+              </div>
+              <input type="range" id="targetPitch" min="20" max="3500" step="5" value="900" class="w-full">
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">スイープ時間</span>
+                <span class="text-cyan-300 font-mono" id="valSweepTime">0.12 s</span>
+              </div>
+              <input type="range" id="sweepTime" min="0.01" max="1.5" step="0.01" value="0.12" class="w-full">
+            </div>
+          </div>
+        </div>
+
+        <!-- セクション4: 音量エンベロープ (ADSR) -->
+        <div class="border-t border-brand-border/60 pt-4">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-line"></i> 4. 音量エンベロープ (ADSR)
+          </h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">Attack (立上り)</span>
+                <span class="text-teal-300 font-mono" id="valAttack">0.005 s</span>
+              </div>
+              <input type="range" id="envAttack" min="0.001" max="0.4" step="0.001" value="0.005" class="w-full">
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">Decay (減衰)</span>
+                <span class="text-teal-300 font-mono" id="valDecay">0.14 s</span>
+              </div>
+              <input type="range" id="envDecay" min="0.01" max="1.5" step="0.01" value="0.14" class="w-full">
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">Sustain (持続音量)</span>
+                <span class="text-teal-300 font-mono" id="valSustain">0.00</span>
+              </div>
+              <input type="range" id="envSustain" min="0.0" max="1.0" step="0.05" value="0.0" class="w-full">
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">Release (余韻)</span>
+                <span class="text-teal-300 font-mono" id="valRelease">0.05 s</span>
+              </div>
+              <input type="range" id="envRelease" min="0.01" max="2.0" step="0.01" value="0.05" class="w-full">
+            </div>
+          </div>
+        </div>
+
+        <!-- セクション5: フィルター & エフェクト -->
+        <div class="border-t border-brand-border/60 pt-4">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-1.5">
+            <i class="fa-solid fa-sliders"></i> 5. フィルター & エフェクト
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">フィルター種別</span>
+              </div>
+              <select id="filterType" class="w-full bg-brand-dark border border-brand-border rounded-lg text-xs p-2 text-cyan-300 focus:outline-none mb-3">
+                <option value="none">バイパス (OFF)</option>
+                <option value="lowpass">ローパス (高域カット / こもらせる)</option>
+                <option value="highpass">ハイパス (低域カット / 軽快に)</option>
+                <option value="bandpass">バンドパス (特定周波数抽出)</option>
+              </select>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">カットオフ周波数</span>
+                <span class="text-cyan-300 font-mono" id="valCutoff">2500 Hz</span>
+              </div>
+              <input type="range" id="filterCutoff" min="100" max="10000" step="50" value="2500" class="w-full">
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">ディストーション (歪み)</span>
+                <span class="text-cyan-300 font-mono" id="valDistortion">0%</span>
+              </div>
+              <input type="range" id="fxDistortion" min="0" max="50" step="1" value="0" class="w-full mb-3">
+
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">ディレイ / エコー</span>
+                <span class="text-cyan-300 font-mono" id="valDelay">0%</span>
+              </div>
+              <input type="range" id="fxDelay" min="0" max="0.5" step="0.02" value="0" class="w-full">
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">ビブラート (LFO揺れ)</span>
+                <span class="text-cyan-300 font-mono" id="valVibrato">0 Hz</span>
+              </div>
+              <input type="range" id="fxVibrato" min="0" max="35" step="1" value="0" class="w-full mb-3">
+
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">マスター音量</span>
+                <span class="text-cyan-300 font-mono" id="valMasterVolume">85%</span>
+              </div>
+              <input type="range" id="masterVolume" min="0" max="1" step="0.02" value="0.85" class="w-full">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- 右カラム: 4系統エクスポート & マイプリセット管理 (5 cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-5">
+      
+      <!-- 4系統エクスポートハブ -->
+      <div class="bg-brand-card border border-brand-border rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm font-bold">
+              <i class="fa-solid fa-file-export"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">4-Way エクスポートハブ</h2>
+              <p class="text-[11px] text-slate-400">ワンクリックで用途に応じた形式を出力</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- エクスポートボタン群 (2x2 グリッド) -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <!-- 1. WAVダウンロード -->
+          <button id="btnExportWavCard" class="p-3 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 hover:brightness-110 active:scale-95 text-slate-950 font-bold transition flex flex-col items-center justify-center text-center shadow-lg shadow-cyan-500/20">
+            <i class="fa-solid fa-file-arrow-down text-lg mb-1"></i>
+            <span class="text-xs">WAVダウンロード</span>
+            <span class="text-[10px] opacity-80 font-normal">16-bit PCM / 44.1kHz</span>
+          </button>
+
+          <!-- 2. Base64 Data URL コピー -->
+          <button id="btnCopyBase64" class="p-3 rounded-xl bg-brand-surface hover:bg-brand-border border border-brand-border hover:border-amber-400/50 text-amber-300 active:scale-95 font-semibold transition flex flex-col items-center justify-center text-center">
+            <i class="fa-solid fa-barcode text-lg mb-1 text-amber-400"></i>
+            <span class="text-xs">Base64 Data URL</span>
+            <span class="text-[10px] text-slate-400 font-normal">&lt;audio&gt;直貼り</span>
+          </button>
+
+          <!-- 3. Web Audio JS コピー -->
+          <button id="btnCopyJsCode" class="p-3 rounded-xl bg-brand-surface hover:bg-brand-border border border-brand-border hover:border-cyan-400/50 text-cyan-300 active:scale-95 font-semibold transition flex flex-col items-center justify-center text-center">
+            <i class="fa-brands fa-js text-lg mb-1 text-cyan-400"></i>
+            <span class="text-xs">Web Audio JS コード</span>
+            <span class="text-[10px] text-slate-400 font-normal">依存ゼロ・即鳴る関数</span>
+          </button>
+
+          <!-- 4. AIプロンプト コピー -->
+          <button id="btnCopyPromptDirect" class="p-3 rounded-xl bg-brand-surface hover:bg-brand-border border border-brand-border hover:border-emerald-400/50 text-emerald-300 active:scale-95 font-semibold transition flex flex-col items-center justify-center text-center">
+            <i class="fa-solid fa-sparkles text-lg mb-1 text-emerald-400"></i>
+            <span class="text-xs">AI効果音プロンプト</span>
+            <span class="text-[10px] text-slate-400 font-normal">ElevenLabs / LLM用</span>
+          </button>
+        </div>
+
+        <!-- コード & プロンプト プレビュータブ -->
+        <div class="border-t border-brand-border/60 pt-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex gap-2 text-xs">
+              <button id="tabViewCode" class="px-2.5 py-1 rounded-lg font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition">JSコード</button>
+              <button id="tabViewPrompt" class="px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition">AIプロンプト</button>
+            </div>
+            <!-- 言語切替 (プロンプト表示時のみ) -->
+            <div id="promptLangGroup" class="hidden flex bg-brand-dark p-0.5 rounded-lg border border-brand-border text-xs">
+              <button id="btnTabPromptEn" class="px-2 py-0.5 rounded font-medium bg-brand-border text-cyan-300 transition text-[11px]">EN</button>
+              <button id="btnTabPromptJa" class="px-2 py-0.5 rounded font-medium text-slate-400 hover:text-slate-200 transition text-[11px]">JA</button>
+            </div>
+          </div>
+
+          <div class="relative min-h-[170px] max-h-[220px]">
+            <pre id="codeViewArea" class="w-full h-44 overflow-auto bg-brand-dark/95 border border-brand-border rounded-xl p-3 text-[11px] font-mono text-cyan-300/90 leading-relaxed"></pre>
+            <textarea id="promptViewArea" readonly class="hidden w-full h-44 bg-brand-dark/95 border border-brand-border rounded-xl p-3 text-[11px] font-mono text-emerald-300 leading-relaxed resize-none focus:outline-none"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- マイプリセット (LocalStorage) -->
+      <div class="bg-brand-card border border-brand-border rounded-2xl p-5 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-bold">
+              <i class="fa-solid fa-bookmark"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">マイプリセット (Local)</h2>
+              <p class="text-[11px] text-slate-400">ブラウザ内に保存・JSON入出力対応</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="btnExportJson" title="JSONファイルとしてバックアップ保存" class="px-2 py-1 rounded bg-brand-surface hover:bg-brand-border border border-brand-border text-slate-300 text-[10px] font-medium transition">
+              <i class="fa-solid fa-file-export mr-0.5"></i> JSON保存
+            </button>
+            <label title="JSONファイルを復元" class="px-2 py-1 rounded bg-brand-surface hover:bg-brand-border border border-brand-border text-slate-300 text-[10px] font-medium transition cursor-pointer">
+              <i class="fa-solid fa-file-import mr-0.5"></i> 読込
+              <input type="file" id="inputImportJson" accept=".json" class="hidden">
+            </label>
+          </div>
+        </div>
+
+        <!-- プリセット保存入力フォーム -->
+        <div class="flex gap-2 mb-3">
+          <input type="text" id="presetNameInput" placeholder="プリセット名を入力..." class="flex-1 bg-brand-dark border border-brand-border rounded-xl px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-400 transition">
+          <button id="btnSavePreset" class="px-3.5 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-300 text-xs font-semibold active:scale-95 transition flex items-center gap-1">
+            <i class="fa-solid fa-plus"></i>
+            <span>保存</span>
+          </button>
+        </div>
+
+        <!-- 保存プリセット一覧 (スクロール可能) -->
+        <div id="savedPresetList" class="flex-1 max-h-44 overflow-y-auto space-y-1.5 pr-1 custom-scroll">
+          <!-- JSで動的レンダリング -->
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- トースト通知 -->
+  <div id="toast" class="fixed bottom-8 right-6 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 bg-brand-card border border-cyan-400/80 text-cyan-300 px-4 py-2.5 rounded-xl text-xs font-medium shadow-2xl flex items-center gap-2">
+    <i class="fa-solid fa-check text-emerald-400"></i>
+    <span id="toastMsg">通知メッセージ</span>
+  </div>
+
+  <!-- フッター -->
+  <footer class="border-t border-brand-border py-4 text-center text-xs text-slate-500 bg-brand-dark">
+    &copy; 2026 ココサポートワークス
+  </footer>
+
+  <!-- スクリプト -->
+  <script>
+    // ==========================================
+    // 1. 23種類のシーン別実戦テンプレート定義
+    // ==========================================
+    const SCENE_TEMPLATES = [
+      // --- 操作・UI (ui) ---
+      {
+        id: 'soft_tap',
+        cat: 'ui',
+        name: '軽いタップ',
+        sub: 'ボタン選択',
+        waveform: 'sine',
+        basePitch: 1400, targetPitch: 750, sweepTime: 0.03, pitchCurve: 'exponential',
+        attack: 0.002, decay: 0.04, sustain: 0.0, release: 0.015,
+        filterType: 'lowpass', filterCutoff: 3800, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 4, dualDelay: 0.08
+      },
+      {
+        id: 'jelly_button',
+        cat: 'ui',
+        name: 'ぷにっと押し',
+        sub: '弾力ボタン',
+        waveform: 'sine',
+        basePitch: 320, targetPitch: 720, sweepTime: 0.06, pitchCurve: 'exponential',
+        attack: 0.003, decay: 0.08, sustain: 0.0, release: 0.03,
+        filterType: 'none', filterCutoff: 3000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 12, dualDelay: 0.04
+      },
+      {
+        id: 'toggle_on',
+        cat: 'ui',
+        name: 'スイッチON',
+        sub: 'トグルON',
+        waveform: 'triangle',
+        basePitch: 523, targetPitch: 784, sweepTime: 0.05, pitchCurve: 'linear',
+        attack: 0.002, decay: 0.07, sustain: 0.0, release: 0.02,
+        filterType: 'none', filterCutoff: 4000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 7, dualDelay: 0.03
+      },
+      {
+        id: 'toggle_off',
+        cat: 'ui',
+        name: 'スイッチOFF',
+        sub: 'トグルOFF',
+        waveform: 'triangle',
+        basePitch: 784, targetPitch: 523, sweepTime: 0.06, pitchCurve: 'linear',
+        attack: 0.002, decay: 0.07, sustain: 0.0, release: 0.02,
+        filterType: 'none', filterCutoff: 4000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: -5, dualDelay: 0.03
+      },
+      {
+        id: 'hover_focus',
+        cat: 'ui',
+        name: 'フォーカス音',
+        sub: 'ホバー/選択',
+        waveform: 'sine',
+        basePitch: 880, targetPitch: 880, sweepTime: 0.05, pitchCurve: 'linear',
+        attack: 0.001, decay: 0.035, sustain: 0.0, release: 0.01,
+        filterType: 'none', filterCutoff: 3000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+      {
+        id: 'slider_tick',
+        cat: 'ui',
+        name: 'スライダー刻み',
+        sub: '目盛/連打',
+        waveform: 'triangle',
+        basePitch: 980, targetPitch: 980, sweepTime: 0.015, pitchCurve: 'linear',
+        attack: 0.001, decay: 0.02, sustain: 0.0, release: 0.01,
+        filterType: 'highpass', filterCutoff: 600, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+
+      // --- 決定・遷移 (decision) ---
+      {
+        id: 'crisp_confirm',
+        cat: 'decision',
+        name: '決定・次へ',
+        sub: '進むアクション',
+        waveform: 'sine',
+        basePitch: 659, targetPitch: 1046, sweepTime: 0.07, pitchCurve: 'exponential',
+        attack: 0.003, decay: 0.12, sustain: 0.0, release: 0.04,
+        filterType: 'none', filterCutoff: 4000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 4, dualDelay: 0.06
+      },
+      {
+        id: 'major_submit',
+        cat: 'decision',
+        name: '送信・完了',
+        sub: 'フォーム完了',
+        waveform: 'triangle',
+        basePitch: 440, targetPitch: 880, sweepTime: 0.14, pitchCurve: 'exponential',
+        attack: 0.005, decay: 0.22, sustain: 0.0, release: 0.08,
+        filterType: 'none', filterCutoff: 5000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 7, dualDelay: 0.07
+      },
+      {
+        id: 'page_flip',
+        cat: 'decision',
+        name: 'ページめくり',
+        sub: '画面切り替え',
+        waveform: 'noise',
+        basePitch: 400, targetPitch: 120, sweepTime: 0.1, pitchCurve: 'linear',
+        attack: 0.008, decay: 0.09, sustain: 0.0, release: 0.04,
+        filterType: 'bandpass', filterCutoff: 1800, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+      {
+        id: 'modal_open',
+        cat: 'decision',
+        name: 'ポップアップ表示',
+        sub: 'モーダル出現',
+        waveform: 'sine',
+        basePitch: 350, targetPitch: 820, sweepTime: 0.1, pitchCurve: 'exponential',
+        attack: 0.005, decay: 0.15, sustain: 0.0, release: 0.05,
+        filterType: 'none', filterCutoff: 3000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 12, dualDelay: 0.03
+      },
+
+      // --- キャンセル・戻る (cancel) ---
+      {
+        id: 'subtle_cancel',
+        cat: 'cancel',
+        name: 'キャンセル',
+        sub: '中止・中断',
+        waveform: 'sine',
+        basePitch: 600, targetPitch: 360, sweepTime: 0.06, pitchCurve: 'linear',
+        attack: 0.003, decay: 0.07, sustain: 0.0, release: 0.03,
+        filterType: 'none', filterCutoff: 3000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+      {
+        id: 'soft_back',
+        cat: 'cancel',
+        name: '戻る',
+        sub: '前画面へ',
+        waveform: 'triangle',
+        basePitch: 700, targetPitch: 440, sweepTime: 0.08, pitchCurve: 'exponential',
+        attack: 0.002, decay: 0.09, sustain: 0.0, release: 0.03,
+        filterType: 'lowpass', filterCutoff: 2400, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: -5, dualDelay: 0.04
+      },
+      {
+        id: 'modal_close',
+        cat: 'cancel',
+        name: '閉じる',
+        sub: 'モーダル収納',
+        waveform: 'sine',
+        basePitch: 680, targetPitch: 280, sweepTime: 0.09, pitchCurve: 'exponential',
+        attack: 0.004, decay: 0.11, sustain: 0.0, release: 0.04,
+        filterType: 'lowpass', filterCutoff: 2000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+      {
+        id: 'trash_reset',
+        cat: 'cancel',
+        name: 'リセット・消去',
+        sub: 'ゴミ箱/やり直し',
+        waveform: 'sawtooth',
+        basePitch: 320, targetPitch: 100, sweepTime: 0.14, pitchCurve: 'linear',
+        attack: 0.003, decay: 0.15, sustain: 0.0, release: 0.06,
+        filterType: 'lowpass', filterCutoff: 1200, distortion: 8, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+
+      // --- 正解・学習判定 (learning) ---
+      {
+        id: 'correct_dingdong',
+        cat: 'learning',
+        name: '正解ピンポン',
+        sub: 'チャイム (長3度)',
+        waveform: 'sine',
+        basePitch: 659, targetPitch: 659, sweepTime: 0.1, pitchCurve: 'linear',
+        attack: 0.003, decay: 0.35, sustain: 0.0, release: 0.15,
+        filterType: 'none', filterCutoff: 5000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 4, dualDelay: 0.11
+      },
+      {
+        id: 'super_fanfare',
+        cat: 'learning',
+        name: '大正解・花丸',
+        sub: 'ファンファーレ',
+        waveform: 'triangle',
+        basePitch: 523, targetPitch: 1046, sweepTime: 0.18, pitchCurve: 'exponential',
+        attack: 0.004, decay: 0.45, sustain: 0.1, release: 0.25,
+        filterType: 'none', filterCutoff: 6000, distortion: 0, delay: 0.08, vibrato: 5,
+        dualEnabled: true, dualInterval: 7, dualDelay: 0.09
+      },
+      {
+        id: 'near_miss_hint',
+        cat: 'learning',
+        name: 'おしい・ヒント',
+        sub: '再考・助言',
+        waveform: 'sine',
+        basePitch: 493, targetPitch: 587, sweepTime: 0.12, pitchCurve: 'linear',
+        attack: 0.005, decay: 0.18, sustain: 0.0, release: 0.08,
+        filterType: 'none', filterCutoff: 3000, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 3, dualDelay: 0.07
+      },
+      {
+        id: 'wrong_buzzer',
+        cat: 'learning',
+        name: '不正解ブー',
+        sub: '減5度 (トライトーン)',
+        waveform: 'sawtooth',
+        basePitch: 180, targetPitch: 140, sweepTime: 0.2, pitchCurve: 'linear',
+        attack: 0.003, decay: 0.25, sustain: 0.0, release: 0.05,
+        filterType: 'lowpass', filterCutoff: 1000, distortion: 16, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 6, dualDelay: 0.02
+      },
+      {
+        id: 'countdown_tick',
+        cat: 'learning',
+        name: 'タイマー刻み',
+        sub: '制限時間カウント',
+        waveform: 'sine',
+        basePitch: 880, targetPitch: 440, sweepTime: 0.03, pitchCurve: 'exponential',
+        attack: 0.001, decay: 0.04, sustain: 0.0, release: 0.015,
+        filterType: 'none', filterCutoff: 3500, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+
+      // --- ゲーム演出・報酬 (game) ---
+      {
+        id: 'star_coin',
+        cat: 'game',
+        name: 'コイン・星獲得',
+        sub: 'キラキラ取得',
+        waveform: 'square',
+        basePitch: 987, targetPitch: 1318, sweepTime: 0.08, pitchCurve: 'linear',
+        attack: 0.002, decay: 0.16, sustain: 0.0, release: 0.04,
+        filterType: 'none', filterCutoff: 3500, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: true, dualInterval: 5, dualDelay: 0.06
+      },
+      {
+        id: 'card_flip',
+        cat: 'game',
+        name: 'カードめくり',
+        sub: '神経衰弱/めくり',
+        waveform: 'triangle',
+        basePitch: 380, targetPitch: 640, sweepTime: 0.05, pitchCurve: 'exponential',
+        attack: 0.003, decay: 0.07, sustain: 0.0, release: 0.02,
+        filterType: 'lowpass', filterCutoff: 2200, distortion: 0, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+      {
+        id: 'spring_jump',
+        cat: 'game',
+        name: 'ばねジャンプ',
+        sub: 'ポヨーンジャンプ',
+        waveform: 'sine',
+        basePitch: 150, targetPitch: 750, sweepTime: 0.16, pitchCurve: 'exponential',
+        attack: 0.004, decay: 0.22, sustain: 0.0, release: 0.06,
+        filterType: 'none', filterCutoff: 4000, distortion: 0, delay: 0, vibrato: 12,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      },
+      {
+        id: 'soft_thud',
+        cat: 'game',
+        name: 'ぽよんと衝突',
+        sub: 'バウンド・着地',
+        waveform: 'sine',
+        basePitch: 260, targetPitch: 60, sweepTime: 0.09, pitchCurve: 'exponential',
+        attack: 0.003, decay: 0.12, sustain: 0.0, release: 0.04,
+        filterType: 'lowpass', filterCutoff: 1000, distortion: 6, delay: 0, vibrato: 0,
+        dualEnabled: false, dualInterval: 0, dualDelay: 0
+      }
+    ];
+
+    // ==========================================
+    // 2. 状態管理 & 50ステップ Undo / Redo スタック
+    // ==========================================
+
+    // ことばタウン向けの素材。元の工房の23テンプレートと編集機能も保持します。
+    const townBase={...SCENE_TEMPLATES[0],cat:'town',masterVolume:.55,filterType:'none',distortion:0,delay:0,vibrato:0,dualEnabled:false};
+    const townTemplates=[
+      {id:'town_dog',name:'いぬ・ワンッ',waveform:'sawtooth',basePitch:210,targetPitch:95,sweepTime:.14,attack:.005,decay:.18,sustain:.02,release:.09,filterType:'lowpass',filterCutoff:950},
+      {id:'town_bird',name:'とり・ピヨッ',waveform:'sine',basePitch:2300,targetPitch:1400,sweepTime:.12,attack:.01,decay:.12,sustain:.01,release:.08,dualEnabled:true,dualInterval:3,dualDelay:.16},
+      {id:'town_car',name:'くるま・ブーン',waveform:'sawtooth',basePitch:65,targetPitch:110,sweepTime:.7,attack:.08,decay:.9,sustain:.3,release:.2,filterType:'lowpass',filterCutoff:300},
+      {id:'town_tree',name:'き・葉のざわめき',waveform:'noise',attack:.15,decay:.8,sustain:.05,release:.3,filterType:'lowpass',filterCutoff:900},
+      {id:'town_flower',name:'はな・きらきら',waveform:'sine',basePitch:1046,targetPitch:1568,sweepTime:.2,attack:.003,decay:.22,sustain:.01,release:.25,dualEnabled:true,dualInterval:7,dualDelay:.13},
+      {id:'town_road',name:'みち・とことこ',waveform:'triangle',basePitch:160,targetPitch:55,sweepTime:.05,attack:.002,decay:.07,sustain:0,release:.05,dualEnabled:true,dualInterval:0,dualDelay:.22},
+      {id:'town_home',name:'いえ・呼び鈴',waveform:'sine',basePitch:660,targetPitch:660,sweepTime:.1,attack:.005,decay:.35,sustain:.01,release:.3,dualEnabled:true,dualInterval:-4,dualDelay:.3},
+      {id:'town_field',name:'はたけ・ざくっ',waveform:'noise',attack:.005,decay:.15,sustain:.02,release:.1,filterType:'lowpass',filterCutoff:1300},
+      {id:'town_seed',name:'たね・芽が出る',waveform:'sine',basePitch:280,targetPitch:1500,sweepTime:.4,attack:.02,decay:.4,sustain:.02,release:.2},
+      {id:'town_water',name:'みず・ぽちゃん',waveform:'sine',basePitch:900,targetPitch:150,sweepTime:.17,attack:.003,decay:.2,sustain:.01,release:.15,dualEnabled:true,dualInterval:5,dualDelay:.15}
+    ].map(p=>({...townBase,...p,cat:'town',sub:'ことばタウンの絵に合う効果音'}));
+    SCENE_TEMPLATES.unshift(...townTemplates);
+
+    let audioCtx = null;
+    let analyser = null;
+    let isPromptLangEn = true;
+
+    // 現在の合成パラメーター（初期値: 軽いタップ）
+    let currentParams = { ...SCENE_TEMPLATES[0], masterVolume: 0.55 };
+
+    // 履歴スタック
+    const MAX_HISTORY = 50;
+    const historyStack = [];
+    let historyIndex = -1;
+    let isHistoryNavigating = false;
+
+    function pushHistory(actionName = 'Edit') {
+      if (isHistoryNavigating) return;
+
+      // 現在位置より先の履歴を破棄（新しい分岐）
+      if (historyIndex < historyStack.length - 1) {
+        historyStack.splice(historyIndex + 1);
+      }
+
+      // ディープコピーしてスタックに保存
+      const snapshot = JSON.parse(JSON.stringify(currentParams));
+      historyStack.push({ name: actionName, params: snapshot });
+
+      // 最大数制限
+      if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+      } else {
+        historyIndex++;
+      }
+
+      updateHistoryUI();
+    }
+
+    function undo() {
+      if (historyIndex > 0) {
+        isHistoryNavigating = true;
+        historyIndex--;
+        const record = historyStack[historyIndex];
+        currentParams = JSON.parse(JSON.stringify(record.params));
+        syncParamsToUI();
+        updateOutputs();
+        playCurrentSound();
+        isHistoryNavigating = false;
+        updateHistoryUI();
+        showToast(`Undo: ${record.name}`);
+      }
+    }
+
+    function redo() {
+      if (historyIndex < historyStack.length - 1) {
+        isHistoryNavigating = true;
+        historyIndex++;
+        const record = historyStack[historyIndex];
+        currentParams = JSON.parse(JSON.stringify(record.params));
+        syncParamsToUI();
+        updateOutputs();
+        playCurrentSound();
+        isHistoryNavigating = false;
+        updateHistoryUI();
+        showToast(`Redo: ${record.name}`);
+      }
+    }
+
+    function updateHistoryUI() {
+      const btnUndo = document.getElementById('btnUndo');
+      const btnRedo = document.getElementById('btnRedo');
+      const counter = document.getElementById('historyCounter');
+
+      const canUndo = historyIndex > 0;
+      const canRedo = historyIndex < historyStack.length - 1;
+
+      btnUndo.disabled = !canUndo;
+      btnRedo.disabled = !canRedo;
+
+      if (canUndo) {
+        btnUndo.classList.remove('text-slate-500', 'hover:text-cyan-300');
+        btnUndo.classList.add('text-slate-200', 'hover:text-cyan-300');
+      } else {
+        btnUndo.classList.add('text-slate-500');
+        btnUndo.classList.remove('text-slate-200');
+      }
+
+      if (canRedo) {
+        btnRedo.classList.remove('text-slate-500', 'hover:text-cyan-300');
+        btnRedo.classList.add('text-slate-200', 'hover:text-cyan-300');
+      } else {
+        btnRedo.classList.add('text-slate-500');
+        btnRedo.classList.remove('text-slate-200');
+      }
+
+      counter.textContent = `${historyIndex + 1}/${historyStack.length}`;
+    }
+
+    // ==========================================
+    // 3. Web Audio API 音源エンジン
+    // ==========================================
+    function townStopAudio(){try{audioCtx?.close();}catch{}audioCtx=null;analyser=null;}
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function createWhiteNoiseBuffer(ctx, duration) {
+      const size = Math.ceil(ctx.sampleRate * duration);
+      const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < size; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      return buffer;
+    }
+
+    function makeDistortionCurve(amount) {
+      const k = typeof amount === 'number' ? amount : 50;
+      const n_samples = 44100;
+      const curve = new Float32Array(n_samples);
+      const deg = Math.PI / 180;
+      for (let i = 0; i < n_samples; ++i) {
+        const x = (i * 2) / n_samples - 1;
+        curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+      }
+      return curve;
+    }
+
+    function scheduleVoice(ctx, destination, p, pitchFactor = 1.0, timeOffset = 0, isSub = false) {
+      const now = ctx.currentTime + timeOffset;
+      const totalDuration = p.attack + p.decay + p.release;
+
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0.0001, now);
+      gainNode.gain.linearRampToValueAtTime(1.0, now + Math.max(p.attack, 0.001));
+
+      const decayEnd = now + p.attack + p.decay;
+      const sustainVal = Math.max(0.0001, p.sustain);
+      gainNode.gain.exponentialRampToValueAtTime(sustainVal, decayEnd);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, decayEnd + p.release);
+
+      let sourceNode;
+      if (p.waveform === 'noise') {
+        const buf = createWhiteNoiseBuffer(ctx, totalDuration + 0.1);
+        sourceNode = ctx.createBufferSource();
+        sourceNode.buffer = buf;
+      } else {
+        const osc = ctx.createOscillator();
+        osc.type = p.waveform;
+
+        const startFreq = Math.max(10, p.basePitch * pitchFactor);
+        const endFreq = Math.max(10, p.targetPitch * pitchFactor);
+        osc.frequency.setValueAtTime(startFreq, now);
+
+        const sweepEnd = now + Math.min(p.sweepTime, totalDuration);
+        if (p.pitchCurve === 'exponential') {
+          osc.frequency.exponentialRampToValueAtTime(endFreq, sweepEnd);
+        } else {
+          osc.frequency.linearRampToValueAtTime(endFreq, sweepEnd);
+        }
+
+        if (p.vibrato > 0 && !isSub) {
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.frequency.setValueAtTime(p.vibrato, now);
+          lfoGain.gain.setValueAtTime(startFreq * 0.08, now);
+          lfo.connect(osc.frequency);
+          lfo.start(now);
+          lfo.stop(now + totalDuration + 0.1);
+        }
+
+        sourceNode = osc;
+      }
+
+      let lastNode = gainNode;
+      if (p.filterType !== 'none' && !isSub) {
+        const filter = ctx.createBiquadFilter();
+        filter.type = p.filterType;
+        filter.frequency.setValueAtTime(p.filterCutoff, now);
+        filter.Q.setValueAtTime(1, now);
+        gainNode.connect(filter);
+        lastNode = filter;
+      }
+
+      if (p.distortion > 0 && !isSub) {
+        const shaper = ctx.createWaveShaper();
+        shaper.curve = makeDistortionCurve(p.distortion);
+        shaper.oversample = '4x';
+        lastNode.connect(shaper);
+        lastNode = shaper;
+      }
+
+      if (p.delay > 0 && !isSub) {
+        const delay = ctx.createDelay();
+        delay.delayTime.setValueAtTime(p.delay, now);
+        const fb = ctx.createGain();
+        fb.gain.setValueAtTime(0.35, now);
+        lastNode.connect(delay);
+        delay.connect(fb);
+        fb.connect(delay);
+        delay.connect(destination);
+      }
+
+      sourceNode.connect(gainNode);
+      lastNode.connect(destination);
+
+      sourceNode.start(now);
+      sourceNode.stop(now + totalDuration + (p.delay > 0 ? 0.6 : 0.05));
+    }
+
+    function playCurrentSound(pitchMultiplier = 1.0) {
+      const ctx = getAudioContext();
+      const mainGain = ctx.createGain();
+      mainGain.gain.setValueAtTime(currentParams.masterVolume, ctx.currentTime);
+      mainGain.connect(analyser);
+
+      // 主音
+      scheduleVoice(ctx, mainGain, currentParams, pitchMultiplier, 0, false);
+
+      // 2音・アルペジオ
+      if (currentParams.dualEnabled) {
+        const semitones = currentParams.dualInterval;
+        const secondFactor = pitchMultiplier * Math.pow(2, semitones / 12);
+        scheduleVoice(ctx, mainGain, currentParams, secondFactor, currentParams.dualDelay, true);
+      }
+
+      const promptEl = document.getElementById('scopePrompt');
+      if (promptEl) promptEl.style.display = 'none';
+    }
+
+    // ==========================================
+    // 4. WAV & Base64 生成
+    // ==========================================
+    async function renderSoundBuffer(params) {
+      let totalDuration = params.attack + params.decay + params.release + 0.1;
+      if (params.dualEnabled) {
+        totalDuration = Math.max(totalDuration, params.dualDelay + params.attack + params.decay + params.release + 0.1);
+      }
+      if (params.delay > 0) totalDuration += 0.5;
+
+      const sampleRate = 44100;
+      const offlineCtx = new OfflineAudioContext(1, Math.ceil(sampleRate * totalDuration), sampleRate);
+
+      const mainGain = offlineCtx.createGain();
+      mainGain.gain.setValueAtTime(params.masterVolume, 0);
+      mainGain.connect(offlineCtx.destination);
+
+      scheduleVoice(offlineCtx, mainGain, params, 1.0, 0, false);
+
+      if (params.dualEnabled) {
+        const secondFactor = Math.pow(2, params.dualInterval / 12);
+        scheduleVoice(offlineCtx, mainGain, params, secondFactor, params.dualDelay, true);
+      }
+
+      const renderedBuffer = await offlineCtx.startRendering();
+      return audioBufferToWavBlob(renderedBuffer);
+    }
+
+    function audioBufferToWavBlob(buffer) {
+      const numOfChan = buffer.numberOfChannels;
+      const length = buffer.length * numOfChan * 2 + 44;
+      const out = new DataView(new ArrayBuffer(length));
+      let pos = 0;
+
+      function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
+      function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+
+      setUint32(0x46464952); // "RIFF"
+      setUint32(length - 8);
+      setUint32(0x45564157); // "WAVE"
+      setUint32(0x20746d66); // "fmt "
+      setUint32(16);
+      setUint16(1);          // PCM
+      setUint16(numOfChan);
+      setUint32(buffer.sampleRate);
+      setUint32(buffer.sampleRate * 2 * numOfChan);
+      setUint16(numOfChan * 2);
+      setUint16(16);         // 16-bit
+      setUint32(0x61746164); // "data"
+      setUint32(length - pos - 4);
+
+      const channels = [];
+      for (let i = 0; i < buffer.numberOfChannels; i++) {
+        channels.push(buffer.getChannelData(i));
+      }
+
+      let offset = 0;
+      while (offset < buffer.length) {
+        for (let i = 0; i < numOfChan; i++) {
+          let s = Math.max(-1, Math.min(1, channels[i][offset]));
+          s = (0.5 + s < 0 ? s * 32768 : s * 32767) | 0;
+          out.setInt16(pos, s, true);
+          pos += 2;
+        }
+        offset++;
+      }
+
+      return new Blob([out], { type: 'audio/wav' });
+    }
+
+    async function downloadWav() {
+      const blob = await renderSoundBuffer(currentParams);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      const filename = `sfx_${(currentParams.name || 'sound').replace(/\s+/g, '_')}_${Date.now()}.wav`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+      showToast(`WAVファイルを保存しました: ${filename}`);
+    }
+
+    async function copyBase64Url() {
+      const blob = await renderSoundBuffer(currentParams);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        copyTextToClipboard(reader.result);
+        showToast('Base64 Data URL をコピーしました！');
+      };
+      reader.readAsDataURL(blob);
+    }
+
+    // ==========================================
+    // 5. オシロスコープ描画
+    // ==========================================
+    const canvas = document.getElementById('scopeCanvas');
+    const canvasCtx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      if (!canvas.parentElement) return;
+      canvas.width = canvas.parentElement.clientWidth * window.devicePixelRatio;
+      canvas.height = canvas.parentElement.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    let townAnimationFrame=0,townVisualizerActive=true;
+    function drawVisualizer() {
+      if(!townVisualizerActive)return;
+      townAnimationFrame=requestAnimationFrame(drawVisualizer);
+      if (!analyser) {
+        canvasCtx.fillStyle = '#080c14';
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = '#223250';
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(0, canvas.height / 2);
+        canvasCtx.lineTo(canvas.width, canvas.height / 2);
+        canvasCtx.stroke();
+        return;
+      }
+
+      const mode = document.querySelector('input[name="scopeMode"]:checked').value;
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      canvasCtx.fillStyle = 'rgba(8, 12, 20, 0.35)';
+      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (mode === 'wave') {
+        analyser.getByteTimeDomainData(dataArray);
+        canvasCtx.lineWidth = 3;
+        const grad = canvasCtx.createLinearGradient(0, 0, canvas.width, 0);
+        grad.addColorStop(0, '#06b6d4');
+        grad.addColorStop(0.5, '#38bdf8');
+        grad.addColorStop(1, '#10b981');
+        canvasCtx.strokeStyle = grad;
+        canvasCtx.beginPath();
+
+        const sliceWidth = canvas.width / bufferLength;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = (v * canvas.height) / 2;
+          if (i === 0) canvasCtx.moveTo(x, y);
+          else canvasCtx.lineTo(x, y);
+          x += sliceWidth;
+        }
+        canvasCtx.lineTo(canvas.width, canvas.height / 2);
+        canvasCtx.stroke();
+      } else {
+        analyser.getByteFrequencyData(dataArray);
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255) * canvas.height;
+          const grad = canvasCtx.createLinearGradient(0, canvas.height, 0, 0);
+          grad.addColorStop(0, '#06b6d4');
+          grad.addColorStop(1, '#10b981');
+          canvasCtx.fillStyle = grad;
+          canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+          x += barWidth + 1;
+        }
+      }
+    }
+
+    // ==========================================
+    // 6. 出力コード & AIプロンプト生成
+    // ==========================================
+    function updateOutputs() {
+      // 選択ラベル更新
+      const lbl = document.getElementById('labelCurrentSound');
+      if (lbl) lbl.textContent = `${currentParams.name} (${currentParams.sub || 'Custom'})`;
+
+      // 1. Web Audio JS
+      document.getElementById('codeViewArea').textContent = generateWebAudioCode(currentParams);
+
+      // 2. AIプロンプト
+      document.getElementById('promptViewArea').value = generateAiPrompt(currentParams, isPromptLangEn);
+    }
+
+    function generateWebAudioCode(p) {
+      const isNoise = p.waveform === 'noise';
+      return `/**
+ * SFX: ${p.name} (${p.sub || 'Studio'})
+ * Generated by SFX Vibe Forge Studio (© 2026 ココサポートワークス)
+ */
+function play${(p.name || 'Sound').replace(/[^a-zA-Z0-9]/g, '')}() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AudioContextClass();
+  const now = ctx.currentTime;
+
+  const mainGain = ctx.createGain();
+  mainGain.gain.setValueAtTime(${p.masterVolume.toFixed(2)}, now);
+  mainGain.connect(ctx.destination);
+
+  function triggerVoice(factor, offset) {
+    const t = now + offset;
+    const dur = ${(p.attack + p.decay + p.release).toFixed(3)};
+    const gain = ctx.createGain();
+
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.linearRampToValueAtTime(1.0, t + ${p.attack.toFixed(3)});
+    gain.gain.exponentialRampToValueAtTime(${Math.max(0.0001, p.sustain).toFixed(3)}, t + ${(p.attack + p.decay).toFixed(3)});
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    ${isNoise ? `const size = Math.ceil(ctx.sampleRate * (dur + 0.1));
+    const buf = ctx.createBuffer(1, size, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < size; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;` : `const src = ctx.createOscillator();
+    src.type = '${p.waveform}';
+    src.frequency.setValueAtTime(${(p.basePitch).toFixed(0)} * factor, t);
+    src.frequency.${p.pitchCurve === 'exponential' ? 'exponentialRampToValueAtTime' : 'linearRampToValueAtTime'}(${(p.targetPitch).toFixed(0)} * factor, t + ${p.sweepTime.toFixed(3)});`}
+
+    src.connect(gain);
+    gain.connect(mainGain);
+    src.start(t);
+    src.stop(t + dur + 0.05);
+  }
+
+  // 主音
+  triggerVoice(1.0, 0);${p.dualEnabled ? `
+  // 2音目 (アルペジオ / 和音レイヤー: ${p.dualInterval}st)
+  triggerVoice(${Math.pow(2, p.dualInterval / 12).toFixed(4)}, ${p.dualDelay.toFixed(3)});` : ''}
+}`;
+    }
+
+    function generateAiPrompt(p, isEn) {
+      const dur = (p.attack + p.decay + p.release).toFixed(2);
+      const isDry = p.delay === 0;
+
+      const waveMapEn = {
+        sine: 'pure sine tone, smooth crystal glass',
+        triangle: 'mellow warm triangle wave chime',
+        sawtooth: 'bright crisp synth saw wave',
+        square: 'classic 8-bit chiptune square wave',
+        noise: 'percussive airy white noise'
+      };
+
+      const waveMapJa = {
+        sine: '澄んだサイン波、滑らかなクリスタルガラス質感',
+        triangle: '暖かみのある三角波チャイム',
+        sawtooth: '鮮やかでキレのあるノコギリ波シンセ',
+        square: 'レトロな8-bit矩形波、ピコピコ感',
+        noise: 'パーカッシブなホワイトノイズ'
+      };
+
+      let pitchMotionEn = 'steady tone';
+      let pitchMotionJa = '安定したトーン';
+      if (Math.abs(p.basePitch - p.targetPitch) > 40) {
+        if (p.basePitch < p.targetPitch) {
+          pitchMotionEn = `pitch sweep upward (${p.basePitch}Hz to ${p.targetPitch}Hz)`;
+          pitchMotionJa = `${p.basePitch}Hzから${p.targetPitch}Hzへのピッチ急上昇`;
+        } else {
+          pitchMotionEn = `pitch dive downward (${p.basePitch}Hz to ${p.targetPitch}Hz)`;
+          pitchMotionJa = `${p.basePitch}Hzから${p.targetPitch}Hzへの下降スイープ`;
+        }
+      }
+
+      const dualDescEn = p.dualEnabled ? `, dual-tone harmony (+${p.dualInterval}st, ${p.dualDelay}s step)` : '';
+      const dualDescJa = p.dualEnabled ? `、2音和音/アルペジオ(+${p.dualInterval}半音、${p.dualDelay}秒差)` : '';
+
+      if (isEn) {
+        return `[Role/Scene]: Educational / Game UI SFX (${p.name} - ${p.sub || 'UI'})
+[Source/Material]: ${waveMapEn[p.waveform]}
+[ADSR Envelope]: Attack ${p.attack}s, Decay ${p.decay}s, Sustain ${p.sustain}, Release ${p.release}s
+[Pitch Trajectory]: ${pitchMotionEn}${dualDescEn}
+[Duration]: ${dur}s, one-shot
+[Acoustics]: ${isDry ? 'Completely dry, zero reverb, clean UI asset' : 'Light subtle echo'}
+[Prompt]: "${p.name} sound effect, ${waveMapEn[p.waveform]}, ${pitchMotionEn}${dualDescEn}, duration ${dur}s, ${isDry ? 'dry, no reverb' : 'subtle echo'}, mobile app audio asset"`;
+      } else {
+        return `【用途・シーン】: 学習アプリ・ゲーム効果音（${p.name} / ${p.sub || 'UI'}）
+【音源・質感】: ${waveMapJa[p.waveform]}
+【ADSR特性】: アタック${p.attack}s、ディケイ${p.decay}s、サステイン${p.sustain}、余韻${p.release}s
+【ピッチ挙動】: ${pitchMotionJa}${dualDescJa}
+【持続時間】: 約${dur}秒（ワンショット）
+【音響空間】: ${isDry ? '完全ドライ、残響・リバーブゼロ、クリアな単音' : '軽い余韻'}
+【推奨プロンプト】: 「${p.name}、${waveMapJa[p.waveform]}、${pitchMotionJa}${dualDescJa}、持続時間${dur}秒、${isDry ? '残響なし（ドライ）' : '軽い余韻'}、UI向けクリーン効果音」`;
+      }
+    }
+
+    // ==========================================
+    // 7. テンプレートレンダリング & フィルター
+    // ==========================================
+    function renderTemplates(category = 'all', searchQuery = '') {
+      const grid = document.getElementById('templateCardGrid');
+      grid.innerHTML = '';
+
+      const query = searchQuery.trim().toLowerCase();
+      const filtered = SCENE_TEMPLATES.filter(tpl => {
+        const matchCat = (category === 'all' || tpl.cat === category);
+        const matchQuery = !query || tpl.name.toLowerCase().includes(query) || (tpl.sub && tpl.sub.toLowerCase().includes(query));
+        return matchCat && matchQuery;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="col-span-full py-4 text-center text-xs text-slate-500 italic">該当するシーンテンプレートが見つかりません</div>';
+        return;
+      }
+
+      filtered.forEach(tpl => {
+        const btn = document.createElement('button');
+        const isActive = currentParams.name === tpl.name;
+        btn.className = `p-2 rounded-xl text-left border transition active:scale-95 flex flex-col justify-between ${
+          isActive 
+            ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-md shadow-cyan-500/10' 
+            : 'bg-brand-card/90 border-brand-border text-slate-200 hover:border-cyan-500/40 hover:bg-brand-card'
+        }`;
+
+        let catBadgeColor = 'text-cyan-400';
+        if (tpl.cat === 'learning') catBadgeColor = 'text-teal-400';
+        if (tpl.cat === 'game') catBadgeColor = 'text-amber-400';
+        if (tpl.cat === 'cancel') catBadgeColor = 'text-rose-400';
+
+        btn.innerHTML = `
+          <div class="flex items-center justify-between w-full mb-1">
+            <span class="text-[10px] font-bold ${catBadgeColor} uppercase tracking-wider">${tpl.sub}</span>
+            <i class="fa-solid fa-play text-[10px] opacity-60"></i>
+          </div>
+          <div class="text-xs font-bold truncate">${tpl.name}</div>
+          <div class="text-[10px] text-slate-400 font-mono mt-0.5">${tpl.waveform} · ${tpl.basePitch}Hz</div>
+        `;
+
+        btn.addEventListener('click', () => {
+          Object.assign(currentParams, tpl);
+          syncParamsToUI();
+          updateOutputs();
+          playCurrentSound();
+          pushHistory(`テンプレート: ${tpl.name}`);
+          renderTemplates(category, searchQuery); // アクティブ状態を更新
+        });
+
+        grid.appendChild(btn);
+      });
+    }
+
+    // ==========================================
+    // 8. Mutate & ガチャ
+    // ==========================================
+    function mutateCurrentParams() {
+      function nudge(val, min, max, percent = 0.08) {
+        const delta = (Math.random() * 2 - 1) * percent;
+        let res = val * (1 + delta);
+        if (delta > 0 && res === val) res += 1;
+        return Math.max(min, Math.min(max, res));
+      }
+
+      currentParams.basePitch = Math.round(nudge(currentParams.basePitch, 30, 3200));
+      currentParams.targetPitch = Math.round(nudge(currentParams.targetPitch, 20, 3500));
+      currentParams.sweepTime = +nudge(currentParams.sweepTime, 0.01, 1.5).toFixed(3);
+      currentParams.decay = +nudge(currentParams.decay, 0.01, 1.5).toFixed(3);
+      currentParams.filterCutoff = Math.round(nudge(currentParams.filterCutoff, 100, 10000));
+      if (currentParams.dualEnabled) {
+        currentParams.dualDelay = +nudge(currentParams.dualDelay, 0.01, 0.3).toFixed(3);
+      }
+      currentParams.sub = 'Mutated';
+
+      syncParamsToUI();
+      updateOutputs();
+      playCurrentSound();
+      pushHistory('Mutate (ちょい変え)');
+      showToast('ちょい変え (Mutate) を適用しました');
+    }
+
+    function triggerRandomGacha() {
+      const waves = ['sine', 'triangle', 'sawtooth', 'square', 'noise'];
+      const w = waves[Math.floor(Math.random() * waves.length)];
+      const b = Math.floor(100 + Math.random() * 1600);
+      const t = Math.floor(60 + Math.random() * 1800);
+      const isExp = Math.random() > 0.4;
+      const dualOn = Math.random() > 0.5;
+      const intervals = [3, 4, 5, 7, 12, -12, 6];
+
+      currentParams = {
+        name: 'ランダムガチャ',
+        sub: 'Gacha',
+        waveform: w,
+        basePitch: b,
+        targetPitch: t,
+        sweepTime: +(0.03 + Math.random() * 0.25).toFixed(3),
+        pitchCurve: isExp ? 'exponential' : 'linear',
+        attack: +(0.002 + Math.random() * 0.04).toFixed(3),
+        decay: +(0.05 + Math.random() * 0.35).toFixed(3),
+        sustain: Math.random() > 0.8 ? +(Math.random() * 0.3).toFixed(2) : 0,
+        release: +(0.02 + Math.random() * 0.15).toFixed(3),
+        filterType: Math.random() > 0.5 ? 'lowpass' : 'none',
+        filterCutoff: Math.floor(800 + Math.random() * 5000),
+        distortion: Math.random() > 0.7 ? Math.floor(Math.random() * 25) : 0,
+        delay: Math.random() > 0.8 ? +(0.05 + Math.random() * 0.15).toFixed(2) : 0,
+        vibrato: Math.random() > 0.8 ? Math.floor(Math.random() * 18) : 0,
+        masterVolume: currentParams.masterVolume || 0.85,
+        dualEnabled: dualOn,
+        dualInterval: intervals[Math.floor(Math.random() * intervals.length)],
+        dualDelay: +(0.03 + Math.random() * 0.12).toFixed(3)
+      };
+
+      syncParamsToUI();
+      updateOutputs();
+      playCurrentSound();
+      pushHistory('🎲 ガチャ生成');
+      showToast('ランダム音声を生成しました！');
+    }
+
+    // ==========================================
+    // 9. UIバインディング & 履歴連携
+    // ==========================================
+    function syncParamsToUI() {
+      setVal('basePitch', 'valBasePitch', currentParams.basePitch, ' Hz');
+      setVal('targetPitch', 'valTargetPitch', currentParams.targetPitch, ' Hz');
+      setVal('sweepTime', 'valSweepTime', currentParams.sweepTime, ' s');
+      setVal('envAttack', 'valAttack', currentParams.attack, ' s');
+      setVal('envDecay', 'valDecay', currentParams.decay, ' s');
+      setVal('envSustain', 'valSustain', currentParams.sustain, '');
+      setVal('envRelease', 'valRelease', currentParams.release, ' s');
+      setVal('filterCutoff', 'valCutoff', currentParams.filterCutoff, ' Hz');
+      setVal('fxDistortion', 'valDistortion', currentParams.distortion, '%');
+      setVal('fxDelay', 'valDelay', currentParams.delay, '%');
+      setVal('fxVibrato', 'valVibrato', currentParams.vibrato, ' Hz');
+      setVal('masterVolume', 'valMasterVolume', currentParams.masterVolume, '%', v => Math.round(v * 100));
+
+      document.getElementById('pitchCurve').value = currentParams.pitchCurve;
+      document.getElementById('filterType').value = currentParams.filterType;
+
+      document.querySelectorAll('.wave-btn').forEach(b => {
+        if (b.dataset.wave === currentParams.waveform) {
+          b.classList.remove('border-brand-border', 'bg-brand-dark/60', 'text-slate-300');
+          b.classList.add('border-cyan-500/50', 'bg-cyan-500/15', 'text-cyan-300');
+          document.getElementById('labelCurrentWave').textContent = b.textContent;
+        } else {
+          b.classList.remove('border-cyan-500/50', 'bg-cyan-500/15', 'text-cyan-300');
+          b.classList.add('border-brand-border', 'bg-brand-dark/60', 'text-slate-300');
+        }
+      });
+
+      const dualToggle = document.getElementById('dualToneToggle');
+      const dualStatus = document.getElementById('dualToneStatus');
+      const dualPanel = document.getElementById('dualToneSettings');
+      dualToggle.checked = !!currentParams.dualEnabled;
+      dualStatus.textContent = currentParams.dualEnabled ? 'ON' : 'OFF';
+      dualStatus.className = currentParams.dualEnabled ? 'ml-2 text-xs text-teal-300 font-bold' : 'ml-2 text-xs text-slate-400 font-medium';
+
+      if (currentParams.dualEnabled) {
+        dualPanel.classList.remove('opacity-50', 'pointer-events-none');
+      } else {
+        dualPanel.classList.add('opacity-50', 'pointer-events-none');
+      }
+
+      document.getElementById('dualInterval').value = currentParams.dualInterval;
+      setVal('dualDelay', 'valDualDelay', currentParams.dualDelay, ' s');
+    }
+
+    function setVal(sliderId, labelId, value, suffix, formatFn) {
+      const el = document.getElementById(sliderId);
+      const lbl = document.getElementById(labelId);
+      if (el) el.value = value;
+      if (lbl) lbl.textContent = formatFn ? formatFn(value) + suffix : value + suffix;
+    }
+
+    function setupEventListeners() {
+      // Undo / Redo ボタン
+      document.getElementById('btnUndo').addEventListener('click', undo);
+      document.getElementById('btnRedo').addEventListener('click', redo);
+
+      // ショートカットキー (Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z, Ctrl+Y, Space)
+      window.addEventListener('keydown', (e) => {
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+
+        if (cmdKey && e.code === 'KeyZ' && !e.shiftKey) {
+          e.preventDefault();
+          undo();
+        } else if ((cmdKey && e.shiftKey && e.code === 'KeyZ') || (cmdKey && e.code === 'KeyY')) {
+          e.preventDefault();
+          redo();
+        } else if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          playCurrentSound(1.0);
+        }
+      });
+
+      // 波形選択
+      document.querySelectorAll('.wave-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentParams.waveform = btn.dataset.wave;
+          syncParamsToUI();
+          updateOutputs();
+          playCurrentSound();
+          pushHistory(`波形変更: ${btn.textContent}`);
+        });
+      });
+
+      // スライダー類 (スライダー操作完了の 'change' イベントで履歴をPUSH)
+      bindInputWithHistory('basePitch', 'valBasePitch', ' Hz', v => currentParams.basePitch = parseFloat(v), '開始周波数');
+      bindInputWithHistory('targetPitch', 'valTargetPitch', ' Hz', v => currentParams.targetPitch = parseFloat(v), '到達周波数');
+      bindInputWithHistory('sweepTime', 'valSweepTime', ' s', v => currentParams.sweepTime = parseFloat(v), 'スイープ時間');
+      bindInputWithHistory('envAttack', 'valAttack', ' s', v => currentParams.attack = parseFloat(v), 'Attack');
+      bindInputWithHistory('envDecay', 'valDecay', ' s', v => currentParams.decay = parseFloat(v), 'Decay');
+      bindInputWithHistory('envSustain', 'valSustain', '', v => currentParams.sustain = parseFloat(v), 'Sustain');
+      bindInputWithHistory('envRelease', 'valRelease', ' s', v => currentParams.release = parseFloat(v), 'Release');
+      bindInputWithHistory('filterCutoff', 'valCutoff', ' Hz', v => currentParams.filterCutoff = parseFloat(v), 'カットオフ');
+      bindInputWithHistory('fxDistortion', 'valDistortion', '%', v => currentParams.distortion = parseFloat(v), '歪み');
+      bindInputWithHistory('fxDelay', 'valDelay', '%', v => currentParams.delay = parseFloat(v), 'ディレイ');
+      bindInputWithHistory('fxVibrato', 'valVibrato', ' Hz', v => currentParams.vibrato = parseFloat(v), 'ビブラート');
+      bindInputWithHistory('masterVolume', 'valMasterVolume', '%', v => currentParams.masterVolume = parseFloat(v), '音量', v => Math.round(v * 100));
+
+      // 2音モード
+      document.getElementById('dualToneToggle').addEventListener('change', (e) => {
+        currentParams.dualEnabled = e.target.checked;
+        syncParamsToUI();
+        updateOutputs();
+        playCurrentSound();
+        pushHistory(`和音モード: ${e.target.checked ? 'ON' : 'OFF'}`);
+      });
+      document.getElementById('dualInterval').addEventListener('change', (e) => {
+        currentParams.dualInterval = parseInt(e.target.value, 10);
+        updateOutputs();
+        playCurrentSound();
+        pushHistory('和音音程変更');
+      });
+      bindInputWithHistory('dualDelay', 'valDualDelay', ' s', v => currentParams.dualDelay = parseFloat(v), '和音ディレイ');
+
+      // セレクトボックス
+      document.getElementById('pitchCurve').addEventListener('change', (e) => {
+        currentParams.pitchCurve = e.target.value;
+        updateOutputs();
+        pushHistory('ピッチカーブ変更');
+      });
+      document.getElementById('filterType').addEventListener('change', (e) => {
+        currentParams.filterType = e.target.value;
+        updateOutputs();
+        pushHistory('フィルター変更');
+      });
+
+      // カテゴリタブ切り替え
+      let currentCategory = 'all';
+      document.querySelectorAll('.scene-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.scene-tab').forEach(t => {
+            t.classList.remove('bg-cyan-500', 'text-slate-950', 'shadow');
+            t.classList.add('bg-brand-card', 'border', 'border-brand-border', 'text-slate-300');
+          });
+          tab.classList.remove('bg-brand-card', 'border', 'border-brand-border', 'text-slate-300');
+          tab.classList.add('bg-cyan-500', 'text-slate-950', 'shadow');
+          currentCategory = tab.dataset.cat;
+          renderTemplates(currentCategory, document.getElementById('templateSearch').value);
+        });
+      });
+
+      // 検索フィルター
+      document.getElementById('templateSearch').addEventListener('input', (e) => {
+        renderTemplates(currentCategory, e.target.value);
+      });
+
+      // 音階テストパッド
+      document.querySelectorAll('.pitch-pad').forEach(pad => {
+        pad.addEventListener('click', () => {
+          const semitones = parseInt(pad.dataset.semi, 10);
+          const factor = Math.pow(2, semitones / 12);
+          playCurrentSound(factor);
+        });
+      });
+
+      // ボタンアクション
+      document.getElementById('btnMutate').addEventListener('click', mutateCurrentParams);
+      document.getElementById('btnGacha').addEventListener('click', triggerRandomGacha);
+      document.getElementById('btnPlayMain').addEventListener('click', () => playCurrentSound(1.0));
+
+      // エクスポート
+      document.getElementById('btnExportWavTop').addEventListener('click', downloadWav);
+      document.getElementById('btnExportWavCard').addEventListener('click', downloadWav);
+      document.getElementById('btnCopyBase64').addEventListener('click', copyBase64Url);
+      document.getElementById('btnCopyJsCode').addEventListener('click', () => {
+        copyTextToClipboard(document.getElementById('codeViewArea').textContent);
+        showToast('Web Audio JS コードをコピーしました！');
+      });
+      document.getElementById('btnCopyPromptDirect').addEventListener('click', () => {
+        copyTextToClipboard(document.getElementById('promptViewArea').value);
+        showToast('AIプロンプトをコピーしました！');
+      });
+
+      // タブ切り替え
+      document.getElementById('tabViewCode').addEventListener('click', () => {
+        document.getElementById('codeViewArea').classList.remove('hidden');
+        document.getElementById('promptViewArea').classList.add('hidden');
+        document.getElementById('promptLangGroup').classList.add('hidden');
+        document.getElementById('tabViewCode').classList.add('bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/40');
+        document.getElementById('tabViewCode').classList.remove('text-slate-400');
+        document.getElementById('tabViewPrompt').classList.remove('bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/40');
+        document.getElementById('tabViewPrompt').classList.add('text-slate-400');
+      });
+
+      document.getElementById('tabViewPrompt').addEventListener('click', () => {
+        document.getElementById('codeViewArea').classList.add('hidden');
+        document.getElementById('promptViewArea').classList.remove('hidden');
+        document.getElementById('promptLangGroup').classList.remove('hidden');
+        document.getElementById('tabViewPrompt').classList.add('bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/40');
+        document.getElementById('tabViewPrompt').classList.remove('text-slate-400');
+        document.getElementById('tabViewCode').classList.remove('bg-cyan-500/20', 'text-cyan-300', 'border', 'border-cyan-500/40');
+        document.getElementById('tabViewCode').classList.add('text-slate-400');
+      });
+
+      // プロンプト言語
+      document.getElementById('btnTabPromptEn').addEventListener('click', (e) => {
+        isPromptLangEn = true;
+        e.target.classList.add('bg-brand-border', 'text-cyan-300');
+        e.target.classList.remove('text-slate-400');
+        document.getElementById('btnTabPromptJa').classList.remove('bg-brand-border', 'text-cyan-300');
+        document.getElementById('btnTabPromptJa').classList.add('text-slate-400');
+        updateOutputs();
+      });
+      document.getElementById('btnTabPromptJa').addEventListener('click', (e) => {
+        isPromptLangEn = false;
+        e.target.classList.add('bg-brand-border', 'text-cyan-300');
+        e.target.classList.remove('text-slate-400');
+        document.getElementById('btnTabPromptEn').classList.remove('bg-brand-border', 'text-cyan-300');
+        document.getElementById('btnTabPromptEn').classList.add('text-slate-400');
+        updateOutputs();
+      });
+    }
+
+    function bindInputWithHistory(id, lblId, suffix, updateFn, historyLabel, formatFn) {
+      const el = document.getElementById(id);
+      const lbl = document.getElementById(lblId);
+
+      // ドラッグ中はリアルタイムに反映
+      el.addEventListener('input', (e) => {
+        const val = e.target.value;
+        updateFn(val);
+        lbl.textContent = formatFn ? formatFn(val) + suffix : val + suffix;
+        updateOutputs();
+      });
+
+      // 手を離した時 (change) に履歴スタックへ保存
+      el.addEventListener('change', () => {
+        pushHistory(`${historyLabel} 変更`);
+      });
+    }
+
+    // ==========================================
+    // 10. マイプリセット (LocalStorage)
+    // ==========================================
+    const LOCAL_KEY = 'kotoba_town_sfx_forge_presets_v1';
+
+    function townCleanPreset(p){
+      if(!p||typeof p!=='object')return null;
+      const base={...SCENE_TEMPLATES[0]},num=(v,a,b,f)=>Number.isFinite(Number(v))?Math.max(a,Math.min(b,Number(v))):f;
+      base.name=String(p.name||'My Sound').slice(0,60);base.sub='My Preset';base.cat='town';
+      base.waveform=['sine','triangle','sawtooth','square','noise'].includes(p.waveform)?p.waveform:base.waveform;
+      base.filterType=['none','lowpass','highpass','bandpass'].includes(p.filterType)?p.filterType:'none';base.pitchCurve=p.pitchCurve==='linear'?'linear':'exponential';base.dualEnabled=!!p.dualEnabled;
+      for(const [key,a,b,f]of [['basePitch',10,4000,500],['targetPitch',10,4000,500],['sweepTime',.01,1.5,.1],['attack',.001,.4,.01],['decay',.01,1.5,.2],['sustain',0,1,0],['release',.01,2,.1],['filterCutoff',100,10000,3000],['distortion',0,50,0],['delay',0,.5,0],['vibrato',0,35,0],['masterVolume',0,1,.55],['dualInterval',-12,12,0],['dualDelay',0,.5,.08]])base[key]=num(p[key],a,b,f);
+      return base;
+    }
+    const townEscape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function loadSavedPresets() {
+      try {
+        const data = localStorage.getItem(LOCAL_KEY);
+        const parsed=data?JSON.parse(data):[];return Array.isArray(parsed)?parsed.map(townCleanPreset).filter(Boolean).slice(0,200):[];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function savePresetList(list) {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(list));
+      renderPresetList();
+    }
+
+    function renderPresetList() {
+      const list = loadSavedPresets();
+      const container = document.getElementById('savedPresetList');
+      container.innerHTML = '';
+
+      if (list.length === 0) {
+        container.innerHTML = '<div class="text-xs text-slate-500 py-3 text-center italic">保存されたプリセットはありません</div>';
+        return;
+      }
+
+      list.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2 rounded-xl bg-brand-surface border border-brand-border hover:border-cyan-500/40 transition group';
+        row.innerHTML = `
+          <div class="flex items-center gap-2 cursor-pointer flex-1 min-w-0" data-index="${index}">
+            <button class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center hover:bg-cyan-500 hover:text-slate-950 transition">
+              <i class="fa-solid fa-play"></i>
+            </button>
+            <div class="truncate">
+              <div class="text-xs font-semibold text-slate-200 group-hover:text-cyan-300 transition truncate">${townEscape(item.name)}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${townEscape(item.waveform)} · ${Number(item.basePitch)}Hz</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button data-del="${index}" class="text-slate-500 hover:text-rose-400 text-xs p-1.5 transition" title="削除">
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
+          </div>
+        `;
+
+        row.querySelector('[data-index]').addEventListener('click', () => {
+          Object.assign(currentParams, item);
+          syncParamsToUI();
+          updateOutputs();
+          playCurrentSound();
+          pushHistory(`マイプリセット: ${item.name}`);
+          showToast(`プリセット「${item.name}」を読み込みました`);
+        });
+
+        row.querySelector('[data-del]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const target = list[index];
+          const filtered = list.filter((_, i) => i !== index);
+          savePresetList(filtered);
+          showToast(`「${target.name}」を削除しました`);
+        });
+
+        container.appendChild(row);
+      });
+    }
+
+    function setupPresetManager() {
+      document.getElementById('btnSavePreset').addEventListener('click', () => {
+        const input = document.getElementById('presetNameInput');
+        const name = input.value.trim() || currentParams.name || 'My Sound';
+        const list = loadSavedPresets();
+
+        const newPreset = { ...currentParams, name, sub: 'My Preset' };
+        list.unshift(newPreset);
+        savePresetList(list);
+        input.value = '';
+        showToast(`マイプリセット「${name}」を保存しました`);
+      });
+
+      document.getElementById('btnExportJson').addEventListener('click', () => {
+        const list = loadSavedPresets();
+        if (list.length === 0) {
+          showToast('保存されたプリセットがありません');
+          return;
+        }
+        const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sfx_presets_backup_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 200);
+        showToast('JSONファイルを書き出しました');
+      });
+
+      document.getElementById('inputImportJson').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const imported = JSON.parse(event.target.result);
+            if (Array.isArray(imported)) {
+              const currentList = loadSavedPresets();
+              savePresetList([...imported.map(townCleanPreset).filter(Boolean), ...currentList].slice(0,200));
+              showToast(`${imported.length}件のプリセットを読み込みました`);
+            } else {
+              showToast('JSONの形式が正しくありません');
+            }
+          } catch (err) {
+            showToast('JSONの読み込みに失敗しました');
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      renderPresetList();
+    }
+
+    function copyTextToClipboard(text) {
+      const el = document.createElement('textarea');
+      el.value = text;
+      el.setAttribute('readonly', '');
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2500);
+    }
+
+    // ==========================================
+    // 11. 初期化
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('townAdd').onclick=async()=>{
+        const button=document.getElementById('townAdd');button.disabled=true;button.textContent='音を作っています…';
+        try{const blob=await renderSoundBuffer({...currentParams});if(parent===window){showToast('ことばタウンの設定画面から開いてください。WAV保存も使えます。');return;}
+          parent.postMessage({type:'kotoba-town-sfx',blob,name:currentParams.name||'工房で作った音'},location.origin);showToast('ことばタウンへ音を送りました');
+        }catch(e){showToast('音を追加できませんでした。設定を見直して試してください。');}finally{button.disabled=false;button.textContent='ことばタウンに追加';}
+      };
+      document.getElementById('townBack').onclick=()=>{townStopAudio();parent.postMessage({type:'kotoba-town-close-studio'},location.origin);};
+      window.addEventListener('message',e=>{if(e.source!==parent||e.origin!==location.origin)return;if(e.data?.type==='kotoba-town-stop'){townStopAudio();townVisualizerActive=false;cancelAnimationFrame(townAnimationFrame);}if(e.data?.type==='kotoba-town-open'&&!townVisualizerActive){townVisualizerActive=true;resizeCanvas();drawVisualizer();}if(e.data?.type==='kotoba-town-sfx-saved')showToast('ことばタウンの音の一覧に追加しました');});
+      setupEventListeners();
+      setupPresetManager();
+      document.querySelector('[data-cat=all]').textContent=`すべて (${SCENE_TEMPLATES.length})`;
+      renderTemplates('all');
+      syncParamsToUI();
+      updateOutputs();
+      resizeCanvas();
+      drawVisualizer();
+
+      // 初期状態を履歴スタックに登録
+      pushHistory('初期設定');
+    });
+  </script>
+</body>
+</html>

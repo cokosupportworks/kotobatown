@@ -4,6 +4,12 @@ import {extractInk,extractHandwritingInk,browserReferences,cleanedCanvas} from '
 import {recognizePhoto,warmShapeEngine} from './photo-recognition.js';
 import {cleanProfile,isHiragana,manualReading,makeSample,sampleReference,addSample,proposeReading,unpackMask} from './handwriting.js';
 import {readHiragana} from './hiragana-ocr.js';
+import {fitCardTexts} from './card-text.js';
+import {setupPictures} from './pictures.js?v=10';
+import {setupEffects} from './effects.js';
+import {resolvedMotion,motionFrames} from './effects-model.js';
+let effects=null;
+let pictureLibrary=new Map();
 const $=id=>document.getElementById(id),clone=x=>JSON.parse(JSON.stringify(x));
 let profile=cleanProfile(null);try{profile=cleanProfile(JSON.parse(localStorage.getItem('kotoba-handwriting-v1')));}catch{}setAliases(profile.aliases);
 function saveProfile(){try{localStorage.setItem('kotoba-handwriting-v1',JSON.stringify(profile));return true;}catch{return false;}}
@@ -35,12 +41,12 @@ function render(){
  renderWorld();requestAnimationFrame(fitBoards);
 }
 function wordFor(c){if(c.item)return c.itemWord||c.item;if(c.seed)return c.growth===3?'やさい':(c.seedWord||'たね');return c.terrain==='field'?(c.terrainWord||'はたけ'):c.terrain==='road'?(c.terrainWord||'みち'):'';}
-function content(c){let a='';if(c.seed)a+=`<span class="picture seed">${icon(c.growth===0?'seed':c.growth===1?'sprout':c.growth===2?'leaf':'vegetable')}</span>`;if(c.item)a+=c.item==='text'?`<span class="word-object">${c.itemWord}</span>`:`<span class="picture">${icon(c.item)}</span>`;const w=wordFor(c);if(w&&c.item!=='text')a+=`<span class="world-label">${w}</span>`;return a;}
+function content(c){const custom=pictureLibrary.get(wordFor(c));if(custom)return `<span class="picture user-picture"><img src="${custom.url}" alt=""></span><span class="world-label">${wordFor(c)}</span>`;let a='';if(c.seed)a+=`<span class="picture seed">${icon(c.growth===0?'seed':c.growth===1?'sprout':c.growth===2?'leaf':'vegetable')}</span>`;if(c.item)a+=c.item==='text'?`<span class="word-object">${c.itemWord}</span>`:`<span class="picture">${icon(c.item)}</span>`;const w=wordFor(c);if(w&&c.item!=='text')a+=`<span class="world-label">${w}</span>`;return a;}
 function renderWorld(changed=[]){
  cancelWorldMotions();
  const s=state(),el=$('world');el.className=`board world ${mode==='free'?'free-world':''} ${labels?'':'labels-off'}`;
  if(mode==='grow'){el.innerHTML=s.world.map((c,i)=>`<button class="world-cell" data-world="${i}" aria-label="${Math.floor(i/4)+1}行${i%4+1}列 ${wordFor(c)||'くさはら'}"><span class="terrain">${ground(c,i,s.world)}</span>${content(c)}</button>`).join('');for(const i of changed){el.children[i]?.querySelector('.picture')?.classList.add('pop');}}
- else{el.innerHTML=s.scene.map((o,i)=>{const meaning=meaningOf(o.word);let c={terrain:'grass',seed:false,growth:0,item:null};if(meaning==='みち')c.terrain='road';else if(meaning==='はたけ')c.terrain='field';else if(meaning==='たね')c.seed=true;else if(meaning!=='みず')c.item=meaning;c.itemWord=c.terrainWord=c.seedWord=o.word;return `<button class="free-object" data-world="${i}" style="left:${o.x*100}%;top:${o.y*100}%" aria-label="${o.word}"><span class="terrain">${ground(c,0,fresh())}</span>${meaning==='みず'?`<span class="picture">${icon('water')}</span><span class="world-label">${o.word}</span>`:content(c)}</button>`;}).join('');}
+ else{el.innerHTML=s.scene.map((o,i)=>{const meaning=meaningOf(o.word);let c={terrain:'grass',seed:false,growth:0,item:null};if(meaning==='みち')c.terrain='road';else if(meaning==='はたけ')c.terrain='field';else if(meaning==='たね')c.seed=true;else if(meaning!=='みず')c.item=meaning;c.itemWord=c.terrainWord=c.seedWord=o.word;return `<button class="free-object" data-world="${i}" style="left:${o.x*100}%;top:${o.y*100}%" aria-label="${o.word}"><span class="terrain">${ground(c,0,fresh())}</span>${meaning==='みず'&&!pictureLibrary.has(o.word)?`<span class="picture">${icon('water')}</span><span class="world-label">${o.word}</span>`:content(c)}</button>`;}).join('');}
  if(mode==='free'){const roads=s.scene.filter(o=>meaningOf(o.word)==='みち');let lines='';for(let a=0;a<roads.length;a++)for(let b=a+1;b<roads.length;b++){const p=roads[a],q=roads[b];if(Math.hypot(p.x-q.x,p.y-q.y)<.30)lines+=`<line x1="${p.x*100}" y1="${p.y*100}" x2="${q.x*100}" y2="${q.y*100}" stroke="#e5cfab" stroke-width="10" stroke-linecap="round"/>`;}if(lines)el.insertAdjacentHTML('afterbegin',`<svg class="road-connections" viewBox="0 0 100 100" aria-hidden="true">${lines}</svg>`);}
  if(!(mode==='grow'?s.world.some(c=>wordFor(c)):s.scene.length))el.insertAdjacentHTML('beforeend',`<div class="empty-world">${icon('sprout')}<span>ここに、せかいが ひろがるよ。</span></div>`);
 }
@@ -83,45 +89,47 @@ $('focusWords').onclick=e=>{const pager=e.target.closest('[data-word-page]');if(
  document.addEventListener('fullscreenchange',()=>{if(nativeView&&!document.fullscreenElement){nativeView=false;setFocusView(null);}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&focusView&&!document.querySelector('dialog[open]'))exitFocus();});
 $('growMode').onclick=()=>switchMode('grow');$('freeMode').onclick=()=>switchMode('free');
-$('sound').onclick=()=>{sound=!sound;if(!sound&&window.speechSynthesis)speechSynthesis.cancel();render();save();};$('labels').onclick=()=>{labels=!labels;render();save();};$('reduced').onchange=e=>{reduced=e.target.checked;document.body.classList.toggle('reduced',reduced);save();};
+$('sound').onclick=()=>{sound=!sound;if(!sound&&window.speechSynthesis)speechSynthesis.cancel();effects?.setEnabled(sound);render();save();};$('labels').onclick=()=>{labels=!labels;render();save();};$('reduced').onchange=e=>{reduced=e.target.checked;document.body.classList.toggle('reduced',reduced);save();};
 let timers=new WeakMap();
 const activeMotions=new Map();
-function cancelWorldMotions(){for(const stop of [...activeMotions.values()])stop();}
-function movingPicture(target,picture,positions,duration,kind){
+function cancelWorldMotions(){for(const stop of [...activeMotions.values()])stop();effects?.audio.stopAll();}
+function movingPicture(target,picture,positions,duration,kind,label){
  activeMotions.get(target)?.();
  const world=$('world'),wr=world.getBoundingClientRect(),pr=picture.getBoundingClientRect(),offsetX=wr.left+world.clientLeft,offsetY=wr.top+world.clientTop;
  const center={x:pr.left+pr.width/2-offsetX,y:pr.top+pr.height/2-offsetY},sprite=document.createElement('span');sprite.className='motion-sprite '+kind;sprite.innerHTML=picture.innerHTML;
  Object.assign(sprite.style,{left:(center.x-pr.width/2)+'px',top:(center.y-pr.height/2)+'px',width:pr.width+'px',height:pr.height+'px'});sprite.setAttribute('aria-hidden','true');world.append(sprite);picture.style.visibility='hidden';
  let lastFacing=1;const frames=positions.map((p,i)=>{const next=positions[Math.min(i+1,positions.length-1)],dx=next.x-p.x,dy=next.y-p.y;if(Math.abs(dx)>.5)lastFacing=dx<0?-1:1;const tilt=kind==='bird'&&i>0&&i<positions.length-1?Math.max(-22,Math.min(22,Math.atan2(dy,Math.abs(dx)||1)*180/Math.PI)):0;return {transform:`translate(${p.x-center.x}px,${p.y-center.y}px) scaleX(${lastFacing}) rotate(${tilt}deg)`};});
+ const audioRun=sound?effects?.playFor(target,label,duration):null;
  const animation=sprite.animate(frames,{duration,easing:'linear',fill:'none'});let stopped=false;
- const stop=()=>{if(stopped)return;stopped=true;animation.onfinish=null;animation.oncancel=null;animation.cancel();sprite.remove();picture.style.visibility='';target.classList.remove('speaking');activeMotions.delete(target);};
- activeMotions.set(target,stop);animation.onfinish=stop;animation.oncancel=stop;
+ const stop=(cancel=true)=>{if(stopped)return;stopped=true;cancel?audioRun?.stop():audioRun?.motionEnd();animation.onfinish=null;animation.oncancel=null;animation.cancel();sprite.remove();picture.style.visibility='';target.classList.remove('speaking');activeMotions.delete(target);};
+ activeMotions.set(target,stop);animation.onfinish=()=>stop(false);animation.oncancel=()=>stop(true);
 }
 function worldPosition(target,picture){const r=$('world').getBoundingClientRect(),p=picture.getBoundingClientRect();return{x:p.left+p.width/2-r.left-$('world').clientLeft,y:p.top+p.height/2-r.top-$('world').clientTop};}
 $('world').addEventListener('click',e=>{
- const target=e.target.closest('[data-world]');if(!target)return;const i=+target.dataset.world,c=mode==='grow'?state().world[i]:null,label=c?wordFor(c):state().scene[i]?.word;if(!label)return;const w=meaningOf(label);speak(label);
- activeMotions.get(target)?.();const picture=target.querySelector('.picture:not(.seed)')||target.querySelector('.picture');target.classList.add('speaking');clearTimeout(timers.get(target));
- if(!picture){timers.set(target,setTimeout(()=>target.classList.remove('speaking'),1300));return;}picture.classList.remove('wiggle','fly','drive','pop');void picture.offsetWidth;
- const gentle=reduced||matchMedia('(prefers-reduced-motion: reduce)').matches;
- if(!gentle&&w==='とり'){
+ const target=e.target.closest('[data-world]');if(!target)return;const i=+target.dataset.world,c=mode==='grow'?state().world[i]:null,label=c?wordFor(c):state().scene[i]?.word;if(!label)return;const w=meaningOf(label),config=effects.get(label),motion=resolvedMotion(config,w);speak(label);
+ activeMotions.get(target)?.();const picture=target.querySelector('.picture:not(.seed)')||target.querySelector('.picture')||target.querySelector('.word-object')||target.querySelector('.terrain');target.classList.add('speaking');clearTimeout(timers.get(target));
+ const gentle=reduced||matchMedia('(prefers-reduced-motion: reduce)').matches,duration=gentle||motion==='none'?0:config.duration*1000;
+ if(picture){picture.classList.remove('wiggle','fly','drive','pop');void picture.offsetWidth;}
+ if(picture&&duration&&motion==='fly'){
   const start=worldPosition(target,picture),world=$('world'),pr=picture.getBoundingClientRect(),bounds={minX:pr.width*.65+5,maxX:world.clientWidth-pr.width*.65-5,minY:pr.height*.65+5,maxY:world.clientHeight-pr.height*.65-5};
-  const flight=birdFlight(start,bounds);movingPicture(target,picture,flight.points,3000,'bird');return;
+  const flight=birdFlight(start,bounds);movingPicture(target,picture,flight.points,duration,'bird',label);return;
  }
- if(!gentle&&w==='くるま'){
+ if(picture&&duration&&motion==='road'){
   const world=$('world'),start=worldPosition(target,picture);let path=[];
   if(mode==='grow'){
    const ids=gridRoadRoute(state().world,i),width=world.clientWidth/4,height=world.clientHeight/4;
    path=ids.map(j=>({x:start.x+((j%4)-(i%4))*width,y:start.y+(Math.floor(j/4)-Math.floor(i/4))*height}));
   }else{const points=freeRoadRoute(state().scene,state().scene[i]);path=[start,...points.map(p=>({x:p.x*world.clientWidth,y:p.y*world.clientHeight}))];}
   path=path.filter((p,j)=>j===0||Math.hypot(p.x-path[j-1].x,p.y-path[j-1].y)>.5);
-  if(path.length>1){const round=[...path,...path.slice(0,-1).reverse()],frames=[];let total=0;
-   // Uniform speed along every segment, including corners and the return trip.
-   for(let j=1;j<round.length;j++){const a=round[j-1],b=round[j],d=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(d/8));total+=d;for(let n=j===1?0:1;n<=steps;n++)frames.push({x:a.x+(b.x-a.x)*n/steps,y:a.y+(b.y-a.y)*n/steps});}
-   movingPicture(target,picture,frames,Math.max(1500,Math.min(18000,total/210*1000)),'car');return;
+  if(path.length>1){const round=[...path,...path.slice(0,-1).reverse()],frames=[];
+   for(let j=1;j<round.length;j++){const a=round[j-1],b=round[j],steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/8));for(let n=j===1?0:1;n<=steps;n++)frames.push({x:a.x+(b.x-a.x)*n/steps,y:a.y+(b.y-a.y)*n/steps});}
+   movingPicture(target,picture,frames,duration,'car',label);return;
   }
  }
- if(!gentle)picture.classList.add(w==='くるま'?'drive':'wiggle');
- timers.set(target,setTimeout(()=>{target.classList.remove('speaking');picture.classList.remove('wiggle','drive');},1300));
+ const audioRun=sound?effects.playFor(target,label,duration):null;let animation=null,done=false,timer;
+ const stop=(cancel=true)=>{if(done)return;done=true;clearTimeout(timer);if(animation){animation.onfinish=animation.oncancel=null;animation.cancel();}cancel?audioRun?.stop():audioRun?.motionEnd();target.classList.remove('speaking');activeMotions.delete(target);};
+ activeMotions.set(target,stop);
+ if(picture&&duration){animation=picture.animate(motionFrames(motion==='road'?'walk':motion,picture.clientWidth,picture.clientHeight,config.amplitude,config.cycles),{duration,easing:'ease-in-out'});animation.onfinish=()=>stop(false);animation.oncancel=()=>stop(true);}else timer=setTimeout(()=>stop(false),350);
 });
 window.addEventListener('resize',cancelWorldMotions);
 $('adult').onclick=()=>{renderSamples();$('adultDialog').showModal();};document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
@@ -242,6 +250,8 @@ function renderSamples(){
  for(const sample of profile.samples){const row=document.createElement('div');row.className='saved-sample';const canvas=document.createElement('canvas');canvas.width=96;canvas.height=48;const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(96,48),mask=unpackMask(sample.mask);for(let i=0;i<mask.length;i++){const v=mask[i]?0:255;pixels.data[i*4]=pixels.data[i*4+1]=pixels.data[i*4+2]=v;pixels.data[i*4+3]=255;}ctx.putImageData(pixels,0,0);const label=document.createElement('span');label.textContent=sample.word;const remove=document.createElement('button');remove.textContent='この手本を削除';remove.className='quiet';remove.onclick=()=>{const old=profile.samples;profile.samples=old.filter(s=>s.id!==sample.id);if(!saveProfile()){profile.samples=old;return;}renderSamples();};row.append(canvas,label,remove);list.append(row);}
 }
 $('singleTarget').innerHTML=Array.from({length:16},(_,i)=>`<option value="${i}">${Math.floor(i/4)+1}行${i%4+1}列</option>`).join('');
+effects=setupEffects({words:allWords,meaningOf,isReduced:()=>reduced,artwork:word=>{const custom=pictureLibrary.get(word);if(custom)return `<img src="${custom.url}" alt="">`;const m=meaningOf(word);if(m==='みち'||m==='はたけ')return ground({terrain:m==='みち'?'road':'field'},0,fresh());if(m==='たね')return icon('seed');if(m==='みず')return icon('water');return m==='text'?`<span class="preview-text">${word}</span>`:icon(m);},onConfigChange:cancelWorldMotions});effects.setEnabled(sound);
+const imageManager=setupPictures({onEffects:word=>effects.open(word),getAliases:()=>profile.aliases,onChange:(entry,loading=false)=>{if(entry&&!WORDS.includes(entry.word)){profile.aliases[entry.word]=loading?(profile.aliases[entry.word]||entry.meaning||'text'):(entry.meaning||'text');setAliases(profile.aliases);saveProfile();if(!loading){wordPage=Math.floor(allWords().indexOf(entry.word)/10);selected=entry.word;}}render();}});pictureLibrary=imageManager.pictures;
 cornerSetup();renderSamples();render();
 const warmRecognition=()=>{try{warmShapeEngine(browserReferences());}catch{}};
 if('requestIdleCallback'in window)requestIdleCallback(warmRecognition,{timeout:2000});else setTimeout(warmRecognition,900);
@@ -259,6 +269,7 @@ function fitBoards(){
   const width=panel.clientWidth-num(style.paddingLeft)-num(style.paddingRight);
   panel.style.setProperty('--fitted-board',`${Math.max(0,Math.floor(Math.min(width,available)))}px`);
  }
+ fitCardTexts();
 }
 const boardFitObserver=new ResizeObserver(()=>requestAnimationFrame(fitBoards));
 for(const el of document.querySelectorAll('.table-panel,.world-panel'))boardFitObserver.observe(el);
