@@ -1,4 +1,4 @@
-import {normalize,WORDS} from './core.js';
+import {normalize,WORDS,allWords} from './core.js';
 import {normalizeInk,referenceFromShape} from './recognition.js';
 export const HIRAGANA=Array.from({length:0x3096-0x3041+1},(_,i)=>String.fromCharCode(0x3041+i)).join('')+'ー';
 export const isHiragana=word=>typeof word==='string'&&/^[ぁ-ゖー]{1,12}$/.test(word);
@@ -17,17 +17,113 @@ export function addSample(samples,sample){
  if(samples.length>=200)throw Error('手本は合計200枚です。おとなのメニューで整理してください。');
  return [...samples,sample];
 }
-export function cleanProfile(value){
- const p={samples:[],aliases:{},readingMode:value?.readingMode==='print'?'print':'handwriting',layout:value?.layout==='single'?'single':'board'};
- for(const [word,meaning]of Object.entries(value?.aliases||{}))if(isHiragana(word)&&(WORDS.includes(meaning)||meaning==='text')&&!WORDS.includes(word))p.aliases[word]=meaning;
- if(Array.isArray(value?.samples))p.samples=value.samples.filter(s=>s&&typeof s.id==='string'&&sampleReference(s)).slice(0,200);
- return p;
+export function cleanProfile(value) {
+  const p = {
+    samples: [],
+    aliases: {},
+    readingMode: value?.readingMode === 'print' ? 'print' : 'handwriting',
+    layout: value?.layout === 'single' ? 'single' : 'board'
+  };
+  for (const [word, meaning] of Object.entries(value?.aliases || {})) {
+    if (isHiragana(word) && (WORDS.includes(meaning) || meaning === 'text') && !WORDS.includes(word)) {
+      p.aliases[word] = meaning;
+    }
+  }
+  if (Array.isArray(value?.samples)) {
+    p.samples = value.samples.filter(s => s && typeof s.id === 'string' && sampleReference(s)).slice(0, 200);
+    // ★追加：手本に登録されている言葉（例：「やさい」）が aliases に漏れていたら自動で登録する
+    for (const s of p.samples) {
+      if (!WORDS.includes(s.word) && !p.aliases[s.word]) {
+        p.aliases[s.word] = 'text';
+      }
+    }
+  }
+  return p;
 }
-export function proposeReading(readings,shape){
- if(shape?.referenceKind==='handwriting'&&shape.word&&shape.word!=='?')return {word:shape.word,source:'手本の形から',alternatives:shape.candidates.map(c=>c.word).slice(0,3)};
- const texts=readings.map(r=>({...r,text:normalize(r.text||'')})).filter(r=>isHiragana(r.text)).sort((a,b)=>(b.confidence||0)-(a.confidence||0));
- if(texts.length)return {word:texts[0].text,source:'文字認識から',alternatives:[...new Set([...texts.map(t=>t.text),...(shape?.candidates||[]).map(c=>c.word)])].slice(0,3)};
- if(shape?.blank)return {word:null,source:'カードなし',alternatives:[]};
- const words=(shape?.candidates||[]).map(c=>c.word).filter(isHiragana);
- return {word:words[0]||'?',source:words.length?(shape?.referenceKind==='handwriting'?'手本に近い形から（仮）':'形の近さから（文字認識では読めず）'):'読みを入力してください',alternatives:words.slice(0,3)};
+
+function closestKnownWord(text, shapeCandidates = []) {
+  const known = [...new Set([...allWords(), ...shapeCandidates.map(c => c.word)])];
+  if (known.includes(text)) return text;
+
+  // 編集距離（レーベンシュタイン距離）を計算
+  function editDistance(a, b) {
+    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    return dp[a.length][b.length];
+  }
+
+  let best = null, bestDist = Infinity;
+  for (const w of known) {
+    const d = editDistance(text, w);
+    if (d < bestDist) { bestDist = d; best = w; }
+  }
+  // 1文字違い（例：「やきい」と「やさい」）、または形の候補上位と共通文字がある場合は既知語に補正
+  if (best && bestDist === 1 && text.length >= 2) return best;
+  
+  // 「しいい」のように同じ文字が連続するOCR特有の誤読で、「い」が含まれている場合、形の第1候補に「い」があればそちらを優先
+  const topShape = shapeCandidates[0]?.word;
+  if (topShape && bestDist <= 2 && [...text].some(ch => topShape.includes(ch))) {
+    return topShape;
+  }
+  return text;
+}
+
+export function proposeReading(readings, shape) {
+  const shapeWords = (shape?.candidates || []).map(c => c.word).filter(isHiragana);
+
+  // 1. 形の照合で確定している場合（手本または高信頼度のフォント一致）
+  if (shape?.word && shape.word !== '?') {
+    return {
+      word: shape.word,
+      source: shape.referenceKind === 'handwriting' ? '手本の形から' : '形の照合から',
+      alternatives: shapeWords.slice(0, 3)
+    };
+  }
+  if (shape?.blank) return { word: null, source: 'カードなし', alternatives: [] };
+
+  // 2. 手本にそこそこ近い形がある場合（スコア1.85未満）は、OCRの誤読より手本を最優先する
+  const bestCandidate = shape?.candidates?.[0];
+  if (shape?.referenceKind === 'handwriting' && bestCandidate && bestCandidate.score < 1.85) {
+    return {
+      word: bestCandidate.word,
+      source: '手本に近い形から',
+      alternatives: shapeWords.slice(0, 3)
+    };
+  }
+
+  // 3. OCR結果の評価（手本候補や既知語を使って「やきい」→「やさい」に自動補正）
+  const texts = readings
+    .map(r => ({ ...r, text: closestKnownWord(normalize(r.text || ''), shape?.candidates || []) }))
+    .filter(r => isHiragana(r.text) && (r.confidence || 0) >= 45)
+    .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+
+  if (texts.length) {
+    const ocrWord = texts[0].text;
+    // もしOCR結果が未知の言葉（例：「しいい」）で、かつ形の照合の第1候補が既知の言葉（スコア1.7未満）なら、形の照合を優先する
+    const known = allWords();
+    if (!known.includes(ocrWord) && bestCandidate && bestCandidate.score < 1.7) {
+      return {
+        word: bestCandidate.word,
+        source: shape?.referenceKind === 'handwriting' ? '手本に近い形から' : '形の近さから',
+        alternatives: [...new Set([ocrWord, ...shapeWords])].slice(0, 3)
+      };
+    }
+    return {
+      word: ocrWord,
+      source: '文字認識から',
+      alternatives: [...new Set([...texts.map(t => t.text), ...shapeWords])].slice(0, 3)
+    };
+  }
+
+  // 4. OCRで読めなかった場合は、形の照合の第1候補を出す
+  return {
+    word: shapeWords[0] || '?',
+    source: shapeWords.length ? (shape?.referenceKind === 'handwriting' ? '手本に近い形から（仮）' : '形の近さから（仮）') : '読みを入力してください',
+    alternatives: shapeWords.slice(0, 3)
+  };
 }

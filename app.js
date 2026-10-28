@@ -9,6 +9,7 @@ let profile=cleanProfile(null);try{profile=cleanProfile(JSON.parse(localStorage.
 function saveProfile(){try{localStorage.setItem('kotoba-handwriting-v1',JSON.stringify(profile));return true;}catch{return false;}}
 const empty=()=>({world:fresh(),cards:Array(16).fill(null),objects:[],scene:[],turn:0,history:[],dirty:false});
 let mode='grow',selected='き',erasing=false,sound=true,labels=true,reduced=false;
+let wordPage=0;
 let focusView=null,nativeView=false,returnScroll=0,returnButton=null;
 let states={grow:empty(),free:empty()};
 try{const saved=JSON.parse(localStorage.getItem('kotoba-garden-v1'));if(saved?.states?.grow?.world?.length===16&&saved?.states?.free){states=saved.states;mode=saved.mode==='free'?'free':'grow';sound=saved.sound??true;labels=saved.labels??true;reduced=!!saved.reduced;}}catch{}
@@ -21,15 +22,17 @@ function render(){
  const s=state();document.body.classList.toggle('reduced',reduced);
  $('growMode').classList.toggle('active',mode==='grow');$('freeMode').classList.toggle('active',mode==='free');$('growMode').setAttribute('aria-pressed',mode==='grow');$('freeMode').setAttribute('aria-pressed',mode==='free');
  $('sound').textContent=sound?'音声 オン':'音声 オフ';$('sound').setAttribute('aria-pressed',sound);$('labels').textContent=labels?'もじを みせる ✓':'もじを みせる';$('labels').setAttribute('aria-pressed',labels);$('reduced').checked=reduced;
- $('focusWords').innerHTML=allWords().map(w=>`<button class="full-word ${selected===w&&!erasing?'selected':''}" data-full-word="${w}" aria-pressed="${selected===w&&!erasing}">${w}</button>`).join('')+`<button class="full-word full-eraser ${erasing?'selected':''}" data-full-word="__erase" aria-pressed="${erasing}">とる</button>`;
- $('words').innerHTML=allWords().map(w=>`<button class="word ${selected===w&&!erasing?'selected':''}" data-word="${w}" aria-pressed="${selected===w&&!erasing}">${w}</button>`).join('');
+ const vocabulary=allWords(),pages=Math.max(1,Math.ceil(vocabulary.length/10));wordPage=Math.min(wordPage,pages-1);const pageWords=vocabulary.slice(wordPage*10,wordPage*10+10);
+ $('wordPages').hidden=pages===1;$('wordsPage').textContent=`${wordPage+1} / ${pages}`;$('wordsPrev').disabled=wordPage===0;$('wordsNext').disabled=wordPage===pages-1;
+ $('focusWords').innerHTML=pageWords.map(w=>`<button class="full-word ${selected===w&&!erasing?'selected':''}" data-full-word="${w}" aria-pressed="${selected===w&&!erasing}">${w}</button>`).join('')+`<button class="full-word full-eraser ${erasing?'selected':''}" data-full-word="__erase" aria-pressed="${erasing}">とる</button>`+(pages>1?`<div class="focus-pages"><button data-word-page="-1" aria-label="前のことばのページ" ${wordPage===0?'disabled':''}>‹</button><span>${wordPage+1}/${pages}</span><button data-word-page="1" aria-label="次のことばのページ" ${wordPage===pages-1?'disabled':''}>›</button></div>`:'');
+ $('words').innerHTML=pageWords.map(w=>`<button class="word ${selected===w&&!erasing?'selected':''}" data-word="${w}" aria-pressed="${selected===w&&!erasing}">${w}</button>`).join('');
  $('eraser').classList.toggle('selected',erasing);$('eraser').setAttribute('aria-pressed',erasing);
  const table=$('table');table.className=`board tabletop ${mode==='free'?'free-table':''}`;table.setAttribute('aria-label',mode==='grow'?'カードを置く台紙、４行４列':'自由にカードを置く台');
  table.innerHTML=mode==='grow'?s.cards.map((w,i)=>`<button class="slot ${w?'':'empty'}" data-slot="${i}" aria-label="${Math.floor(i/4)+1}行${i%4+1}列 ${w||'カードなし'}">${w?`<span class="paper-card">${w}</span>`:''}</button>`).join(''):s.objects.map((o,i)=>`<button class="free-card" data-object="${i}" style="left:${o.x*100}%;top:${o.y*100}%" aria-label="${o.word}のカード"><span class="paper-card">${o.word}</span></button>`).join('');
  if(mode==='free')table.tabIndex=0;else table.removeAttribute('tabindex');
  $('count').textContent=`${pending()} まい`;$('turn').textContent=`ターン ${s.turn}`;$('undo').disabled=!s.history.length;$('commit').disabled=!s.dirty||(mode==='grow'&&!pending());$('clear').disabled=!pending();$('photo').disabled=mode==='free';$('photo').title=mode==='free'?'写真は「つづけて そだてる」で使えます':'';
  $('focusCommit').disabled=$('commit').disabled;$('focusUndo').disabled=$('undo').disabled;
- renderWorld();
+ renderWorld();requestAnimationFrame(fitBoards);
 }
 function wordFor(c){if(c.item)return c.itemWord||c.item;if(c.seed)return c.growth===3?'やさい':(c.seedWord||'たね');return c.terrain==='field'?(c.terrainWord||'はたけ'):c.terrain==='road'?(c.terrainWord||'みち'):'';}
 function content(c){let a='';if(c.seed)a+=`<span class="picture seed">${icon(c.growth===0?'seed':c.growth===1?'sprout':c.growth===2?'leaf':'vegetable')}</span>`;if(c.item)a+=c.item==='text'?`<span class="word-object">${c.itemWord}</span>`:`<span class="picture">${icon(c.item)}</span>`;const w=wordFor(c);if(w&&c.item!=='text')a+=`<span class="world-label">${w}</span>`;return a;}
@@ -62,7 +65,7 @@ function switchMode(m){mode=m;erasing=false;render();save();message(m==='grow'?'
 function setFocusView(view){
  cancelWorldMotions();
  if(view&&!focusView){returnScroll=window.scrollY;returnButton=document.activeElement;}
- focusView=view;document.body.dataset.view=view||'';$('focusBar').hidden=!view;
+ focusView=view;document.body.classList.toggle('overview',!view);document.body.dataset.view=view||'';requestAnimationFrame(fitBoards);$('focusBar').hidden=!view;
  $('focusTable').setAttribute('aria-pressed',view==='table');$('focusWorld').setAttribute('aria-pressed',view==='world');
  $('focusCommit').hidden=view==='world';$('focusUndo').hidden=view==='world';
  if(!view){requestAnimationFrame(()=>{window.scrollTo(0,returnScroll);returnButton?.focus({preventScroll:true});});}
@@ -75,7 +78,8 @@ function exitFocus(){setFocusView(null);if(document.fullscreenElement)document.e
 $('expandTable').onclick=()=>enterFocus('table');$('expandWorld').onclick=()=>enterFocus('world');
 $('exitFocus').onclick=exitFocus;$('focusTable').onclick=()=>setFocusView('table');$('focusWorld').onclick=()=>setFocusView('world');
 $('focusCommit').onclick=()=>$('commit').click();$('focusUndo').onclick=()=>$('undo').click();
-$('focusWords').onclick=e=>{const button=e.target.closest('[data-full-word]');if(!button)return;erasing=button.dataset.fullWord==='__erase';if(!erasing){selected=button.dataset.fullWord;speak(selected);}render();};
+$('wordsPrev').onclick=()=>{wordPage=Math.max(0,wordPage-1);render();};$('wordsNext').onclick=()=>{wordPage++;render();};
+$('focusWords').onclick=e=>{const pager=e.target.closest('[data-word-page]');if(pager){wordPage+=Number(pager.dataset.wordPage);render();return;}const button=e.target.closest('[data-full-word]');if(!button)return;erasing=button.dataset.fullWord==='__erase';if(!erasing){selected=button.dataset.fullWord;speak(selected);}render();};
  document.addEventListener('fullscreenchange',()=>{if(nativeView&&!document.fullscreenElement){nativeView=false;setFocusView(null);}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&focusView&&!document.querySelector('dialog[open]'))exitFocus();});
 $('growMode').onclick=()=>switchMode('grow');$('freeMode').onclick=()=>switchMode('free');
@@ -241,3 +245,23 @@ $('singleTarget').innerHTML=Array.from({length:16},(_,i)=>`<option value="${i}">
 cornerSetup();renderSamples();render();
 const warmRecognition=()=>{try{warmShapeEngine(browserReferences());}catch{}};
 if('requestIdleCallback'in window)requestIdleCallback(warmRecognition,{timeout:2000});else setTimeout(warmRecognition,900);
+
+// Fit each square to the space left by its own visible controls.
+function fitBoards(){
+ for(const panel of document.querySelectorAll('.table-panel,.world-panel')){
+  if(!panel.getClientRects().length)continue;
+  const style=getComputedStyle(panel),num=v=>parseFloat(v)||0;
+  let available=panel.clientHeight-num(style.paddingTop)-num(style.paddingBottom)-6;
+  for(const el of panel.children){
+   if(el.classList.contains('board')||!el.getClientRects().length)continue;
+   const cs=getComputedStyle(el);available-=el.getBoundingClientRect().height+num(cs.marginTop)+num(cs.marginBottom);
+  }
+  const width=panel.clientWidth-num(style.paddingLeft)-num(style.paddingRight);
+  panel.style.setProperty('--fitted-board',`${Math.max(0,Math.floor(Math.min(width,available)))}px`);
+ }
+}
+const boardFitObserver=new ResizeObserver(()=>requestAnimationFrame(fitBoards));
+for(const el of document.querySelectorAll('.table-panel,.world-panel'))boardFitObserver.observe(el);
+window.addEventListener('resize',()=>requestAnimationFrame(fitBoards));
+window.visualViewport?.addEventListener('resize',()=>requestAnimationFrame(fitBoards));
+document.fonts?.ready.then(()=>requestAnimationFrame(fitBoards));
