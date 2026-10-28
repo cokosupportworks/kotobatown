@@ -1,11 +1,13 @@
+import {townCardsForSnapshot} from './snapshot-model.js';
+import {setupSnapshot} from './snapshot.js?v=15';
 import {WORDS,setAliases,meaningOf,allWords,fresh,turn,normalize,homography,project,validQuad,detectCorners,gridRoadRoute,freeRoadRoute,birdFlight} from './core.js';
 import {icon,ground} from './art.js';
-import {extractInk,extractHandwritingInk,browserReferences,cleanedCanvas} from './recognition.js';
-import {recognizePhoto,warmShapeEngine} from './photo-recognition.js';
+import {extractInk,extractHandwritingInk,browserReferences,cleanedCanvas} from './recognition.js?v=12';
+import {recognizePhoto,warmShapeEngine} from './photo-recognition.js?v=12';
 import {cleanProfile,isHiragana,manualReading,makeSample,sampleReference,addSample,proposeReading,unpackMask} from './handwriting.js';
-import {readHiragana} from './hiragana-ocr.js';
+import {readHiragana} from './hiragana-ocr.js?v=12';
 import {fitCardTexts} from './card-text.js';
-import {setupPictures} from './pictures.js?v=10';
+import {setupPictures} from './pictures.js?v=15';
 import {setupEffects} from './effects.js';
 import {resolvedMotion,motionFrames} from './effects-model.js';
 let effects=null;
@@ -36,7 +38,7 @@ function render(){
  const table=$('table');table.className=`board tabletop ${mode==='free'?'free-table':''}`;table.setAttribute('aria-label',mode==='grow'?'カードを置く台紙、４行４列':'自由にカードを置く台');
  table.innerHTML=mode==='grow'?s.cards.map((w,i)=>`<button class="slot ${w?'':'empty'}" data-slot="${i}" aria-label="${Math.floor(i/4)+1}行${i%4+1}列 ${w||'カードなし'}">${w?`<span class="paper-card">${w}</span>`:''}</button>`).join(''):s.objects.map((o,i)=>`<button class="free-card" data-object="${i}" style="left:${o.x*100}%;top:${o.y*100}%" aria-label="${o.word}のカード"><span class="paper-card">${o.word}</span></button>`).join('');
  if(mode==='free')table.tabIndex=0;else table.removeAttribute('tabindex');
- $('count').textContent=`${pending()} まい`;$('turn').textContent=`ターン ${s.turn}`;$('undo').disabled=!s.history.length;$('commit').disabled=!s.dirty||(mode==='grow'&&!pending());$('clear').disabled=!pending();$('photo').disabled=mode==='free';$('photo').title=mode==='free'?'写真は「つづけて そだてる」で使えます':'';
+ $('count').textContent=`${pending()} まい`;$('turn').textContent=`まちづくり ${s.turn}かいめ`;$('undo').disabled=!s.history.length;$('commit').disabled=!s.dirty||(mode==='grow'&&!pending());$('clear').disabled=!pending();$('photo').disabled=mode==='free';$('photo').title=mode==='free'?'写真は「まちを そだてる」で使えます':'';
  $('focusCommit').disabled=$('commit').disabled;$('focusUndo').disabled=$('undo').disabled;
  renderWorld();requestAnimationFrame(fitBoards);
 }
@@ -48,26 +50,26 @@ function renderWorld(changed=[]){
  if(mode==='grow'){el.innerHTML=s.world.map((c,i)=>`<button class="world-cell" data-world="${i}" aria-label="${Math.floor(i/4)+1}行${i%4+1}列 ${wordFor(c)||'くさはら'}"><span class="terrain">${ground(c,i,s.world)}</span>${content(c)}</button>`).join('');for(const i of changed){el.children[i]?.querySelector('.picture')?.classList.add('pop');}}
  else{el.innerHTML=s.scene.map((o,i)=>{const meaning=meaningOf(o.word);let c={terrain:'grass',seed:false,growth:0,item:null};if(meaning==='みち')c.terrain='road';else if(meaning==='はたけ')c.terrain='field';else if(meaning==='たね')c.seed=true;else if(meaning!=='みず')c.item=meaning;c.itemWord=c.terrainWord=c.seedWord=o.word;return `<button class="free-object" data-world="${i}" style="left:${o.x*100}%;top:${o.y*100}%" aria-label="${o.word}"><span class="terrain">${ground(c,0,fresh())}</span>${meaning==='みず'&&!pictureLibrary.has(o.word)?`<span class="picture">${icon('water')}</span><span class="world-label">${o.word}</span>`:content(c)}</button>`;}).join('');}
  if(mode==='free'){const roads=s.scene.filter(o=>meaningOf(o.word)==='みち');let lines='';for(let a=0;a<roads.length;a++)for(let b=a+1;b<roads.length;b++){const p=roads[a],q=roads[b];if(Math.hypot(p.x-q.x,p.y-q.y)<.30)lines+=`<line x1="${p.x*100}" y1="${p.y*100}" x2="${q.x*100}" y2="${q.y*100}" stroke="#e5cfab" stroke-width="10" stroke-linecap="round"/>`;}if(lines)el.insertAdjacentHTML('afterbegin',`<svg class="road-connections" viewBox="0 0 100 100" aria-hidden="true">${lines}</svg>`);}
- if(!(mode==='grow'?s.world.some(c=>wordFor(c)):s.scene.length))el.insertAdjacentHTML('beforeend',`<div class="empty-world">${icon('sprout')}<span>ここに、せかいが ひろがるよ。</span></div>`);
+ if(!(mode==='grow'?s.world.some(c=>wordFor(c)):s.scene.length))el.insertAdjacentHTML('beforeend',`<div class="empty-world">${icon('sprout')}<span>ここに、まちが ひろがるよ。</span></div>`);
 }
 $('words').addEventListener('click',e=>{const w=e.target.closest('[data-word]');if(!w)return;selected=w.dataset.word;erasing=false;speak(selected);render();message(`「${selected}」を どこに おこう？`);});
 $('eraser').onclick=()=>{erasing=!erasing;render();message(erasing?'とりたい カードを さわってね。':`「${selected}」を どこに おこう？`);};
 $('table').addEventListener('click',e=>{
  const s=state();if(mode==='grow'){const target=e.target.closest('[data-slot]');if(!target)return;s.cards[+target.dataset.slot]=erasing?null:selected;}
  else{const o=e.target.closest('[data-object]');if(o){if(erasing)s.objects.splice(+o.dataset.object,1);else{s.objects[+o.dataset.object].word=selected;}}else if(!erasing){const r=$('table').getBoundingClientRect();s.objects.push({word:selected,x:Math.min(.88,Math.max(.12,(e.clientX-r.left)/r.width)),y:Math.min(.86,Math.max(.14,(e.clientY-r.top)/r.height))});}}
- s.dirty=true;render();save();message(pending()?'ならべたら「せかいを かえる」を おそう。':'すきな ことばを えらんで、カードを おこう。');
+ s.dirty=true;render();save();message(pending()?'ならべたら「まちを つくる！」を おそう。':'すきな ことばを えらんで、カードを おこう。');
 });
 $('table').addEventListener('keydown',e=>{if(mode==='free'&&e.target===$('table')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();if(!erasing){state().objects.push({word:selected,x:.5,y:.5});state().dirty=true;render();save();}}});
-$('clear').onclick=()=>{const s=state();s.cards=Array(16).fill(null);s.objects=[];s.dirty=true;render();save();message(mode==='grow'?'カードを かたづけたよ。せかいは のこっているよ。':'カードを かたづけたよ。せかいを かえると、えも なくなるよ。');};
+$('clear').onclick=()=>{const s=state();s.cards=Array(16).fill(null);s.objects=[];s.dirty=true;render();save();message(mode==='grow'?'カードを かたづけたよ。まちは のこっているよ。':'カードを かたづけたよ。まちを つくる！と、えも なくなるよ。');};
 $('commit').onclick=()=>{
  const s=state();if(!s.dirty||(mode==='grow'&&!pending()))return;
  const {history,...snapshot}=s;s.history.push(clone(snapshot));if(s.history.length>30)s.history.shift();
  const changed=s.cards.flatMap((w,i)=>w?[i]:[]),words=mode==='grow'?s.cards.filter(Boolean):s.objects.map(o=>o.word);
  if(mode==='grow'){s.world=turn(s.world,s.cards);s.cards=Array(16).fill(null);}else{s.scene=clone(s.objects);}s.turn++;s.dirty=false;
- render();renderWorld(changed);if(focusView==='table')setFocusView('world');save();speak(words[0]||'');message('せかいが かわったよ。さわってみよう。',mode==='grow'?'つぎの カードを おこう。まえの せかいは のこるよ。':'ならべなおすと、また ちがう せかいに なるよ。');
+ render();renderWorld(changed);if(focusView==='table')setFocusView('world');save();speak(words[0]||'');message('まちが できたよ！さわってみよう。',mode==='grow'?'つぎの カードを おこう。まえの まちは のこるよ。':'ならべなおすと、また ちがう まちに なるよ。');
 };
 $('undo').onclick=()=>{const s=state();if(!s.history.length)return;const snapshot=s.history.pop(),history=s.history;states[mode]={...snapshot,history};render();save();message('ひとつ まえに もどったよ。');};
-function switchMode(m){mode=m;erasing=false;render();save();message(m==='grow'?'まえの せかいに、つぎの ことばを おこう。':'すきな ばしょに、カードを おこう。',m==='grow'?'はたけ → たね → みず で、やさいが そだつよ。':'いま ならべた カードが、えに かわるよ。');}
+function switchMode(m){mode=m;erasing=false;render();save();message(m==='grow'?'まえの まちに、つぎの ことばを おこう。':'すきな ばしょに、カードを おこう。',m==='grow'?'はたけ → たね → みず で、やさいが そだつよ。':'いま ならべた カードが、えに かわるよ。');}
 function setFocusView(view){
  cancelWorldMotions();
  if(view&&!focusView){returnScroll=window.scrollY;returnButton=document.activeElement;}
@@ -133,7 +135,7 @@ $('world').addEventListener('click',e=>{
 });
 window.addEventListener('resize',cancelWorldMotions);
 $('adult').onclick=()=>{renderSamples();$('adultDialog').showModal();};document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
-$('reset').onclick=()=>{$('resetConfirm').hidden=false;};$('cancelReset').onclick=()=>{$('resetConfirm').hidden=true;};$('doReset').onclick=()=>{states[mode]=empty();$('resetConfirm').hidden=true;$('adultDialog').close();render();save();message('あたらしい せかいを つくろう。');};
+$('reset').onclick=()=>{$('resetConfirm').showModal();$('cancelReset').focus();};$('cancelReset').onclick=()=>$('resetConfirm').close();$('doReset').onclick=()=>{states[mode]=empty();$('resetConfirm').close();$('adultDialog').close();render();save();message('あたらしい まちを つくろう。');};
 // Photos remain in memory only. The four points are the printed grid's corner markers.
 let source=null,points=[],crops=[],reviewCards=[],rawReadings=[],shapeResults=[],guesses=[],learnFlags=[],reviewMeanings=[],meaningOverrides={},busy=false,scanId=0;
 const cornerNames=['左上','右上','右下','左下'];
@@ -241,7 +243,7 @@ function commitReview(registerOnly){
  if(registerOnly){$('photoMessage').textContent=(saved?`手本を${saved}枚保存しました。`:skipped?'保存できる文字の形がありませんでした。':'同じ形の手本が登録済みです。')+(skipped?`文字の形を取り出せなかった${skipped}枚は保存していません。`:'');learnFlags=learnFlags.map(()=>false);review();render();return;}
  if(mode!=='grow'){$('photoMessage').textContent='台紙のモードに戻ってから取り込んでください。';return;}
  if(single()){state().cards[+$('singleTarget').value]=reviewCards[0]||null;}else state().cards=reviewCards.map(x=>x||null);
- state().dirty=true;$('photoDialog').close();render();save();message(`カードを おいたよ。${saved?'手本も '+saved+'まい おぼえたよ。':''}`,skipped?`${skipped}枚は文字の形を取り出せず、手本に保存していません。`:'せかいを かえてみよう。');
+ state().dirty=true;$('photoDialog').close();render();save();message(`カードを おいたよ。${saved?'手本も '+saved+'まい おぼえたよ。':''}`,skipped?`${skipped}枚は文字の形を取り出せず、手本に保存していません。`:'まちを つくってみよう。');
 }
 $('acceptPhoto').onclick=()=>commitReview(false);$('saveSamples').onclick=()=>commitReview(true);
 function renderSamples(){
@@ -256,10 +258,18 @@ cornerSetup();renderSamples();render();
 const warmRecognition=()=>{try{warmShapeEngine(browserReferences());}catch{}};
 if('requestIdleCallback'in window)requestIdleCallback(warmRecognition,{timeout:2000});else setTimeout(warmRecognition,900);
 
-// Fit each square to the space left by its own visible controls.
+// Side-by-side boards share one size and identical chrome heights, so the
+// same normalized card coordinates map to exactly the same image coordinates.
 function fitBoards(){
- for(const panel of document.querySelectorAll('.table-panel,.world-panel')){
-  if(!panel.getClientRects().length)continue;
+ const panels=[...document.querySelectorAll('.table-panel,.world-panel')].filter(p=>p.getClientRects().length);
+ const paired=panels.length===2&&!focusView;
+ for(const p of panels){p.style.removeProperty('--paired-head-height');p.style.removeProperty('--paired-tools-height');}
+ if(paired){
+  const head=Math.max(...panels.map(p=>p.querySelector('.panel-head').getBoundingClientRect().height));
+  const tools=Math.max(...panels.map(p=>p.querySelector('.table-tools,.world-tools').getBoundingClientRect().height));
+  for(const p of panels){p.style.setProperty('--paired-head-height',head+'px');p.style.setProperty('--paired-tools-height',tools+'px');}
+ }
+ const sizes=panels.map(panel=>{
   const style=getComputedStyle(panel),num=v=>parseFloat(v)||0;
   let available=panel.clientHeight-num(style.paddingTop)-num(style.paddingBottom)-6;
   for(const el of panel.children){
@@ -267,8 +277,10 @@ function fitBoards(){
    const cs=getComputedStyle(el);available-=el.getBoundingClientRect().height+num(cs.marginTop)+num(cs.marginBottom);
   }
   const width=panel.clientWidth-num(style.paddingLeft)-num(style.paddingRight);
-  panel.style.setProperty('--fitted-board',`${Math.max(0,Math.floor(Math.min(width,available)))}px`);
- }
+  return Math.max(0,Math.floor(Math.min(width,available)));
+ });
+ const common=Math.min(...sizes);
+ panels.forEach((p,i)=>p.style.setProperty('--fitted-board',`${paired?common:sizes[i]}px`));
  fitCardTexts();
 }
 const boardFitObserver=new ResizeObserver(()=>requestAnimationFrame(fitBoards));
@@ -276,3 +288,14 @@ for(const el of document.querySelectorAll('.table-panel,.world-panel'))boardFitO
 window.addEventListener('resize',()=>requestAnimationFrame(fitBoards));
 window.visualViewport?.addEventListener('resize',()=>requestAnimationFrame(fitBoards));
 document.fonts?.ready.then(()=>requestAnimationFrame(fitBoards));
+
+function prepareSnapshotCards(){
+ const table=$('table'),original=[...table.childNodes],cards=townCardsForSnapshot(mode,state(),new Set(pictureLibrary.keys()));
+ const fragment=document.createDocumentFragment();
+ const card=word=>{const el=document.createElement('span');el.className='paper-card';el.textContent=word;return el;};
+ if(mode==='grow')cards.forEach((words,i)=>{const slot=document.createElement('div');slot.className='slot'+(words.length?'':' empty');slot.setAttribute('aria-label',words.join('・')||'カードなし');if(words.length===1)slot.append(card(words[0]));else if(words.length>1){const stack=document.createElement('div');stack.className='snapshot-stack';for(const word of words)stack.append(card(word));slot.append(stack);}fragment.append(slot);});
+ else for(const o of cards){const el=document.createElement('div');el.className='free-card';el.style.left=`${o.x*100}%`;el.style.top=`${o.y*100}%`;el.append(card(o.word));fragment.append(el);}
+ table.replaceChildren(fragment);fitCardTexts(table);const captured=[...table.childNodes];
+ return ()=>{if(captured.length===table.childNodes.length&&captured.every((n,i)=>table.childNodes[i]===n))table.replaceChildren(...original);};
+}
+setupSnapshot({view:()=>focusView,beforeCapture:()=>{cancelWorldMotions();fitBoards();},prepareCards:prepareSnapshotCards});

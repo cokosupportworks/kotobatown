@@ -128,3 +128,61 @@ body[data-view=table] .focus-words{display:grid;grid-template-columns:repeat(6,m
 .world .user-picture>img{position:absolute;inset:0;width:100%;height:100%;min-width:0;min-height:0;max-width:100%;max-height:100%;object-fit:contain;object-position:center;display:block}
 body[data-view=world] .world{--picture-label-space:36px}
 .world.labels-off .user-picture{bottom:5%}
+.snapshot-button{min-height:44px;padding:8px 12px;border:1px solid #91a385;border-radius:8px;background:#fffdf5;font-size:12px;font-weight:700;white-space:nowrap}
+.snapshot-dialog{max-width:min(1000px,94vw)}
+#snapshotPreview{display:block;max-width:100%;max-height:62dvh;object-fit:contain;margin:16px auto;border:1px solid #d0d9c5;border-radius:8px}
+@media(max-width:700px){.table-tools .photo-import{min-height:48px;font-size:14px;padding:7px}.overview .actions{gap:5px}.overview .snapshot-button{font-size:11px;padding:7px;min-height:44px}.focus-actions{gap:5px}.focus-actions .snapshot-button{font-size:10px;padding:5px;white-space:normal;max-width:91px}.focus-bar{gap:4px}.focus-switch button{padding-left:7px;padding-right:7px}}
+@media(max-height:550px) and (orientation:landscape){.table-tools .photo-import{min-height:44px;font-size:14px}.table-tools #clear{font-size:9px}}
+
+/* Paired boards must have the same outside and inside coordinate system. */
+.overview .panel-head{height:var(--paired-head-height,auto)}
+.overview .table-tools,.overview .world-tools{height:var(--paired-tools-height,auto)}
+.tabletop,.world{border-width:clamp(4px,.5vw,6px);border-top-width:clamp(4px,.5vw,6px)}
+/* Both controls keep their natural text width; neither consumes leftover space. */
+.table-tools{flex-wrap:wrap!important;justify-content:center;gap:8px!important}
+.table-tools .photo-import{flex:0 0 auto;width:auto;min-width:0;min-height:44px;padding:8px 12px;border:1px solid #52745a;border-radius:7px;background:#e0efda;font-size:14px;font-weight:700;white-space:nowrap;box-shadow:0 2px 0 #a1b594}
+.table-tools #clear{flex:0 0 auto;width:auto;max-width:none;min-height:44px!important;padding:8px!important;font-size:12px!important;white-space:nowrap}
+.overview .table-tools,.overview .world-tools{width:100%}
+@media(max-width:700px){.table-tools .photo-import{font-size:12px;padding:8px 10px}.table-tools #clear{font-size:11px!important}.table-tools{gap:4px!important}.focus-actions .snapshot-button{max-width:none;white-space:nowrap;font-size:10px}}
+@media(max-width:600px){.focus-bar .secondary{font-size:10px;padding:6px 8px}.focus-switch button{font-size:11px;padding:5px 4px}.focus-actions .primary{font-size:10px;padding:6px 8px}.focus-actions .snapshot-button{font-size:10px;padding:5px}}
+/* A small, welcoming town: warm planning paper, a green map and sunny accents. */
+:root{--ink:#3d5145;--muted:#7b8879;--paper:#faf6eb;--green:#648a6c;--line:#e1e4d4;--orange:#d98a55;--orange-dark:#b66e42}
+body{background:linear-gradient(160deg,#edf5ed 0,#faf6eb 32%,#f7f0df 100%)}
+header{background:#fcf9f0e8;border-bottom:1px solid #dbe5d4}
+.brand{letter-spacing:.04em}.brand svg{width:40px;height:38px}.brand small{background:#f4edda;border-color:#e3dac1;color:#847b61}
+.overview h1{font-size:19px;color:#536e57;letter-spacing:.035em}
+.overview .intro p{display:block;font-size:10px;margin-top:5px;color:#829078}
+.mode-switch{background:#e6eddd;border:1px solid #dce5d0}.mode-switch .active{background:#fffdf5;color:#536e57}
+.overview .palette{background:#eaf0df;border:1px solid #dce5d1;border-radius:16px}
+.word,.full-word{border-color:#dedccb;background:#fffdf6}.word.selected,.full-word.selected{background:#fff5d9;border-color:#8aa378;box-shadow:0 3px 0 #8aa378}
+.step{background:#fffaf0;border-color:#c9d6ba;color:#718368}
+.world-dot{background:#e4b66e;box-shadow:0 0 0 4px #f6ebd4}
+.tabletop,.world{border-radius:13px}
+.tabletop{background:#f7efdc;border-color:#e6dcc3;box-shadow:0 4px 0 #dbcfb3}
+.world{background-color:#e4efd8;border-color:#cbdcbb;box-shadow:0 4px 0 #b9cda7}
+.panel-head h2{color:#48634e}.pill{background:#eee8d6}.pill.green{background:#e1ecd5;color:#658257}
+.primary{background:#d98a55;box-shadow:0 3px 0 #b66e42}.primary:hover:not(:disabled){background:#ce7c47}
+.expand,.snapshot-button{background:#fffaf0;border-color:#d4ddc6}
+.table-tools .photo-import{background:#e8f0dc;border-color:#97ad84;box-shadow:0 2px 0 #bdcba8}
+.overview .actionbar{border-top:1px dashed #d2dac5}
+.empty-world{color:#7c9b70}.empty-world svg{opacity:.8}
+.snapshot-stack{position:absolute;inset:6%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3%}
+.snapshot-stack .paper-card{flex:1;min-height:0;max-height:61%;width:94%;height:auto;transform:none!important}
+@media(max-width:700px),(max-height:550px){.overview .intro p{display:none}.overview h1{font-size:16px}}
+/* Give frequent actions a clear button surface, including toggle states. */
+#sound,#adult,#clear,#labels,#undo,#focusUndo{border:1px solid #bccbb0;border-radius:7px;background:#fffaf0;box-shadow:0 2px 0 #d6deca;padding:8px 10px;min-height:44px;font-weight:600;white-space:nowrap}
+#sound[aria-pressed=true],#labels[aria-pressed=true]{background:#e7efdb;border-color:#92aa7f}
+#sound:hover:not(:disabled),#adult:hover,#clear:hover:not(:disabled),#labels:hover,#undo:hover:not(:disabled),#focusUndo:hover:not(:disabled){background:#eef3e3}
+#adultDialog{width:900px;max-width:94vw}
+#adultDialog .settings-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:20px}
+.settings-actions>button{min-width:0;min-height:52px;font-size:12px;font-weight:600;padding:12px 10px;line-height:1.6}
+.settings-actions>.danger,.reset-dialog .danger{background:#fff0e8;border-color:#d8b199;color:#99563d;border-radius:7px}
+.reset-dialog{width:460px;max-width:94vw}
+.reset-dialog p{font-size:16px;margin:22px 0}
+.reset-dialog .button-row{justify-content:flex-end;margin-bottom:0}
+.reset-dialog .button-row button{min-height:48px;padding:12px 18px;font-size:14px}
+.world-tools,.overview .world-tools{justify-content:flex-end;flex-wrap:wrap;gap:8px;align-content:center}
+.world-tools>span{font-weight:700;font-size:calc(10px + 4pt);color:#526f4e;margin-right:auto}
+.overview .world-tools>span{display:block;font-size:calc(9px + 4pt)}
+#labels{flex:none;margin-left:auto}
+@media(max-width:600px){#adultDialog .settings-actions{grid-template-columns:1fr}.overview nav{gap:5px}#sound,#adult{font-size:10px;padding:7px 8px}.overview #undo{padding:7px 6px;font-size:10px}.overview .world-tools>span{font-size:calc(8px + 4pt)}#labels{font-size:10px;padding:7px 8px}}

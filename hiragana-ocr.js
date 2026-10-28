@@ -1,6 +1,6 @@
 import {HIRAGANA,isHiragana} from './handwriting.js';
 import {normalize} from './core.js';
-import {extractInk,extractHandwritingInk,cleanedCanvas} from './recognition.js';
+import {extractInk,extractHandwritingInk,cleanedCanvas} from './recognition.js?v=12';
 let scriptPromise=null,workerPromise=null;
 async function getWorker(onProgress){
  if(!scriptPromise)scriptPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';s.onload=resolve;s.onerror=()=>reject(Error('文字認識をダウンロードできませんでした。'));document.head.append(s);}).catch(e=>{scriptPromise=null;throw e;});

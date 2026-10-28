@@ -1,5 +1,6 @@
+import {boardBlankResult} from './board-ink.js';
 import {homography} from './core.js';
-import {extractInk,extractHandwritingInk,matchWord} from './recognition.js';
+import {extractInk,extractHandwritingInk,matchWord} from './recognition.js?v=12';
 // Sample each cell directly from the original photo; no large intermediate board.
 export function cardDimensions(points){const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),ratio=Math.max(.4,Math.min(4,(distance(points[0],points[1])+distance(points[3],points[2]))/(distance(points[0],points[3])+distance(points[1],points[2]))));return ratio>=1?{width:640,height:Math.round(640/ratio)}:{width:Math.round(480*ratio),height:480};}
 export function sampleCell(image,h,index,size=320,grid=4,targetHeight=size){
@@ -21,7 +22,7 @@ export function warmShapeEngine(references){
  if(typeof Worker==='undefined')return Promise.resolve(null);
  ready=new Promise(resolve=>{
   try{
-   worker=new Worker(new URL('./recognition-worker.js',import.meta.url),{type:'module'});
+   worker=new Worker(new URL('./recognition-worker.js?v=12',import.meta.url),{type:'module'});
    const timeout=setTimeout(()=>{worker?.terminate();worker=null;ready=null;resolve(null);},4000);
    worker.onmessage=e=>{if(e.data.type==='ready'){clearTimeout(timeout);resolve(worker);}};
    worker.onerror=()=>{clearTimeout(timeout);worker?.terminate();worker=null;ready=null;resolve(null);};
@@ -39,5 +40,5 @@ export async function recognizePhoto(image,points,references,onCell,options={}){
  }
  // Older browsers keep the same recognition, with short yields for the UI.
  const h=homography(points);
- const grid=options.single?1:4,dimensions=options.single?cardDimensions(points):{width:320,height:320};for(let i=0;i<grid*grid;i++){const crop=sampleCell(image,h,i,dimensions.width,grid,dimensions.height);onCell(i,crop,matchWord(options.handwriting?extractHandwritingInk(crop):extractInk(crop),references));if(i%4===3)await new Promise(r=>setTimeout(r,0));}
+ const grid=options.single?1:4,dimensions=options.single?cardDimensions(points):{width:320,height:320};for(let i=0;i<grid*grid;i++){const crop=sampleCell(image,h,i,dimensions.width,grid,dimensions.height);onCell(i,crop,(!options.single&&boardBlankResult(crop))||matchWord(options.handwriting?extractHandwritingInk(crop):extractInk(crop),references));if(i%4===3)await new Promise(r=>setTimeout(r,0));}
 }
